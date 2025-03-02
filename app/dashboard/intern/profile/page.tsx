@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Card } from "../../../components/ui/card";
-import { useUser } from "@clerk/nextjs";
 import { createOrUpdateInternProfile, uploadResume, getInternProfile } from "../../../lib/user-profile";
 import { useToast } from "@/app/components/ui/use-toast";
 import { initStorage, validateConnection } from "../../../lib/supabase";
-import { useClerkSupabase } from "../../../lib/hooks/use-clerk-supabase";
 
 interface FormData {
   firstName: string;
@@ -26,9 +24,16 @@ interface FormData {
 }
 
 export default function ProfilePage() {
-  const { user, isLoaded: isUserLoaded } = useUser();
   const { toast } = useToast();
-  const { supabase, loading: supabaseLoading, error: supabaseError } = useClerkSupabase();
+  
+  // Use useMemo to prevent the user object from changing on every render
+  const user = useMemo(() => ({
+    id: "placeholder-user-id",
+    emailAddresses: [{ emailAddress: "user@example.com" }],
+    firstName: "",
+    lastName: ""
+  }), []);
+  
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -48,16 +53,15 @@ export default function ProfilePage() {
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
-    if (!user || !isUserLoaded) {
+    if (!user || !user.emailAddresses) {
       console.log('User not loaded yet');
       return;
     }
-
+    
     try {
-      console.log('Loading profile with user ID:', user.id);
+      // Get the profile using the updated function signature
       const profile = await getInternProfile(user.id);
-      console.log('Profile loaded:', profile);
-
+      
       if (profile) {
         setFormData({
           firstName: profile.first_name || '',
@@ -73,208 +77,91 @@ export default function ProfilePage() {
           resumeUrl: profile.resume_url || '',
         });
       } else {
-        console.log('No existing profile found, using default empty form data');
+        // Create initial profile with basic information
+        await createOrUpdateInternProfile({
+          user_id: user.id,
+          email: user.emailAddresses[0]?.emailAddress || '',
+          first_name: user.firstName || '',
+          last_name: user.lastName || '',
+        });
       }
     } catch (error) {
       console.error('Error loading profile:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load profile';
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to load profile",
+        variant: "destructive",
+      });
+    }
+  }, [user, toast]);
+
+  const initialize = useCallback(async () => {
+    const isMounted = true;
+    try {
+      // Initialize Supabase storage
+      await initStorage();
+      
+      // Validate Supabase connection
+      const isConnected = await validateConnection();
+      
+      if (!isConnected) {
+        console.error('Supabase connection validation failed');
+        if (!isMounted) return;
+        setConnectionError('Failed to connect to database. Please try again later.');
+        toast({
+          title: "Connection Error",
+          description: "Failed to connect to database. Please try again later.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log('User state:', {
+        isLoaded: !!user,
+        userId: user?.id,
+        userEmail: user?.emailAddresses?.[0]?.emailAddress
+      });
+
+      if (!user || !user.emailAddresses) {
+        console.log('User not loaded yet, waiting...');
+        return;
+      }
+
+      // Load user profile
+      await loadProfile();
+      
+    } catch (error) {
+      console.error('Profile initialization error:', {
+        error,
+        errorType: error instanceof Error ? 'Error' : typeof error,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : undefined
+      });
+      
+      if (!isMounted) return;
+      
+      // Handle empty error objects
+      let errorMessage = 'Failed to initialize profile page';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (error && typeof error === 'object' && Object.keys(error).length === 0) {
+        errorMessage = 'Database connection failed. Please check your Supabase configuration and connection.';
+      }
+      
+      setConnectionError(errorMessage);
       toast({
         title: "Error",
         description: errorMessage,
         variant: "destructive",
       });
     }
-  }, [user, isUserLoaded, toast]);
+  }, [loadProfile, toast, user]);
 
   useEffect(() => {
-    let isMounted = true;
-    
-    const initialize = async () => {
-      try {
-        console.log('Initializing profile page...');
-        
-        // Add a small delay to ensure Clerk is fully loaded
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        console.log('User state:', {
-          isLoaded: isUserLoaded,
-          userId: user?.id,
-          userEmail: user?.emailAddresses?.[0]?.emailAddress
-        });
-
-        if (!user || !isUserLoaded) {
-          console.log('User not loaded yet, waiting...');
-          return;
-        }
-
-        // Check if Supabase client is ready
-        if (supabaseLoading || !supabase) {
-          console.log('Supabase client not ready yet, waiting...');
-          return;
-        }
-
-        if (supabaseError) {
-          console.error('Supabase client error:', supabaseError);
-          if (!isMounted) return;
-          setConnectionError(supabaseError.message);
-          toast({
-            title: "Connection Error",
-            description: supabaseError.message,
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // First validate the connection
-        console.log('About to validate connection...');
-        let isConnected = false;
-        try {
-          isConnected = await validateConnection();
-          console.log('Connection validation result:', isConnected);
-        } catch (connectionError) {
-          console.error('Connection validation error:', connectionError);
-          if (!isMounted) return;
-          setConnectionError('Failed to connect to the database. Please check your Supabase configuration.');
-          toast({
-            title: "Connection Error",
-            description: "Failed to connect to the database. Please check your Supabase configuration.",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        if (!isConnected) {
-          const errorMsg = 'Unable to connect to the database. Please check your configuration.';
-          console.error(errorMsg);
-          if (!isMounted) return;
-          setConnectionError(errorMsg);
-          toast({
-            title: "Connection Error",
-            description: errorMsg,
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // Try to load existing profile
-        console.log('About to get intern profile...');
-        try {
-          // Use the client-side function with Clerk auth
-          const profile = await getInternProfile(user.id, true);
-          
-          if (!profile) {
-            console.log('No profile found, creating initial profile...');
-            try {
-              // Create initial profile with basic information
-              const result = await createOrUpdateInternProfile({
-                user_id: user.id,
-                email: user.emailAddresses[0]?.emailAddress || '',
-                first_name: user.firstName || '',
-                last_name: user.lastName || '',
-              }, true);
-              
-              console.log('Profile created successfully:', result);
-              
-              // Reload profile after creation
-              if (isMounted) {
-                await loadProfile();
-              }
-            } catch (createError) {
-              console.error('Error creating initial profile:', {
-                error: createError,
-                errorType: createError instanceof Error ? 'Error' : typeof createError,
-                errorMessage: createError instanceof Error ? createError.message : 'Unknown error'
-              });
-              
-              if (!isMounted) return;
-              
-              const errorMessage = createError instanceof Error 
-                ? createError.message 
-                : 'Failed to create profile. Please try again later.';
-                
-              toast({
-                title: "Profile Creation Error",
-                description: errorMessage,
-                variant: "destructive",
-              });
-              return;
-            }
-          } else {
-            console.log('Existing profile found:', profile);
-            if (!isMounted) return;
-            setFormData({
-              firstName: profile.first_name || '',
-              lastName: profile.last_name || '',
-              email: profile.email || '',
-              phone: profile.phone_number || '',
-              githubUrl: profile.github_url || '',
-              location: profile.location || '',
-              phoneNumber: profile.phone_number || '',
-              university: profile.university || '',
-              major: profile.major || '',
-              graduationYear: profile.graduation_year || '',
-              resumeUrl: profile.resume_url || '',
-            });
-          }
-        } catch (profileError) {
-          console.error('Error getting intern profile:', {
-            error: profileError,
-            errorType: profileError instanceof Error ? 'Error' : typeof profileError,
-            errorMessage: profileError instanceof Error ? profileError.message : 'Unknown error'
-          });
-          
-          if (!isMounted) return;
-          
-          const errorMessage = profileError instanceof Error 
-            ? profileError.message 
-            : 'Failed to load profile. Please try again later.';
-            
-          toast({
-            title: "Profile Loading Error",
-            description: errorMessage,
-            variant: "destructive",
-          });
-          return;
-        }
-
-        if (isMounted) {
-          setIsInitialized(true);
-        }
-      } catch (error) {
-        console.error('Profile initialization error:', {
-          error,
-          errorType: error instanceof Error ? 'Error' : typeof error,
-          errorMessage: error instanceof Error ? error.message : 'Unknown error',
-          errorStack: error instanceof Error ? error.stack : undefined
-        });
-        
-        if (!isMounted) return;
-        
-        // Handle empty error objects
-        let errorMessage = 'Failed to initialize profile page';
-        if (error instanceof Error) {
-          errorMessage = error.message;
-        } else if (error && typeof error === 'object' && Object.keys(error).length === 0) {
-          errorMessage = 'Database connection failed. Please check your Supabase configuration and connection.';
-        }
-        
-        setConnectionError(errorMessage);
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      }
-    };
-
-    if (isUserLoaded && !supabaseLoading) {
+    if (!!user && !!user.emailAddresses) {
       initialize();
     }
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [user, isUserLoaded, loadProfile, toast, supabase, supabaseLoading, supabaseError]);
+  }, [user, initialize]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -296,18 +183,18 @@ export default function ProfilePage() {
 
     setIsLoading(true);
     try {
-      // Create/update profile with Clerk auth
+      // Create/update profile
       await createOrUpdateInternProfile({
         user_id: user.id,
         email: formData.email,
         phone_number: formData.phone,
         github_url: formData.githubUrl,
         location: formData.location,
-      }, true);
+      });
 
       // Upload resume if provided
       if (resume) {
-        await uploadResume(user.id, resume, true);
+        await uploadResume(user.id, resume);
       }
 
       toast({

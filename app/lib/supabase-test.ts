@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import { createClerkSupabaseClient } from './clerk-supabase-server';
 
 // Test function to check if we can connect to Supabase and read data
 export async function testSupabaseConnection() {
@@ -32,14 +31,13 @@ export async function testSupabaseConnection() {
 }
 
 // Test function to check if we can write data to Supabase
-export async function testSupabaseWrite(userId: string, useClerkAuth = false) {
+export async function testSupabaseWrite(userId: string) {
   try {
     console.log('Testing Supabase write operation...');
+    console.log('Using client with userId:', userId);
     
-    // Get the appropriate client
-    const client = useClerkAuth 
-      ? await createClerkSupabaseClient().catch(() => supabase)
-      : supabase;
+    // Use the regular Supabase client
+    const client = supabase;
     
     // Create a test record with timestamp
     const testData = {
@@ -81,14 +79,13 @@ export async function testSupabaseWrite(userId: string, useClerkAuth = false) {
 }
 
 // Test function to check if we can read specific data from Supabase
-export async function testSupabaseRead(userId: string, useClerkAuth = false) {
+export async function testSupabaseRead(userId: string) {
   try {
-    console.log('Testing Supabase read operation for user:', userId);
+    console.log('Testing Supabase read operation...');
+    console.log('Using client with userId:', userId);
     
-    // Get the appropriate client
-    const client = useClerkAuth 
-      ? await createClerkSupabaseClient().catch(() => supabase)
-      : supabase;
+    // Use the regular Supabase client
+    const client = supabase;
     
     // Try to read data for the specified user
     const { data, error } = await client

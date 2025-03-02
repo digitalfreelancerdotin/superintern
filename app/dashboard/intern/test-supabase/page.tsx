@@ -1,16 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/nextjs';
+import { useState } from 'react';
 import { testSupabaseConnection, testSupabaseWrite, testSupabaseRead } from '../../../lib/supabase-test';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
 
+interface TestResult {
+  success: boolean;
+  data?: any;
+  error?: any;
+  found?: boolean;
+}
+
 export default function TestSupabasePage() {
-  const { user, isLoaded } = useUser();
-  const [connectionResult, setConnectionResult] = useState<any>(null);
-  const [writeResult, setWriteResult] = useState<any>(null);
-  const [readResult, setReadResult] = useState<any>(null);
+  // TODO: Replace with your own authentication mechanism
+  const user = { id: "placeholder-user-id" };
+  const isLoaded = true;
+  
+  const [connectionResult, setConnectionResult] = useState<TestResult | null>(null);
+  const [writeResult, setWriteResult] = useState<TestResult | null>(null);
+  const [readResult, setReadResult] = useState<TestResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // Test the connection to Supabase
@@ -27,30 +36,26 @@ export default function TestSupabasePage() {
     }
   };
 
-  // Test writing data to Supabase
+  // Test writing to Supabase
   const testWrite = async () => {
-    if (!user) return;
     setIsLoading(true);
     try {
       const result = await testSupabaseWrite(user.id);
       setWriteResult(result);
     } catch (error) {
-      console.error('Error testing write:', error);
       setWriteResult({ success: false, error });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Test reading data from Supabase
+  // Test reading from Supabase
   const testRead = async () => {
-    if (!user) return;
     setIsLoading(true);
     try {
       const result = await testSupabaseRead(user.id);
       setReadResult(result);
     } catch (error) {
-      console.error('Error testing read:', error);
       setReadResult({ success: false, error });
     } finally {
       setIsLoading(false);

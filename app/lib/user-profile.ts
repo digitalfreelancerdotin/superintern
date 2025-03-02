@@ -1,5 +1,4 @@
 import { supabase, RESUMES_BUCKET, validateConnection } from './supabase';
-import { createClerkSupabaseClient } from './clerk-supabase-server';
 import { PostgrestError } from '@supabase/supabase-js';
 
 interface InternProfile {
@@ -16,23 +15,13 @@ interface InternProfile {
   graduation_year?: string;
 }
 
-// Helper function to get the appropriate Supabase client
-// For server components, use the Clerk-authenticated client
-// For client components or when no auth is needed, use the regular client
-async function getSupabaseClient(useClerkAuth = true) {
-  if (useClerkAuth) {
-    try {
-      return await createClerkSupabaseClient();
-    } catch (error) {
-      console.error('Failed to create Clerk-authenticated Supabase client:', error);
-      console.warn('Falling back to anonymous Supabase client');
-      return supabase;
-    }
-  }
+// Helper function to get the Supabase client
+async function getSupabaseClient() {
+  await validateConnection();
   return supabase;
 }
 
-export async function getInternProfile(userId: string, useClerkAuth = true) {
+export async function getInternProfile(userId: string) {
   try {
     if (!userId) {
       console.error('getInternProfile called with no userId');
@@ -42,7 +31,7 @@ export async function getInternProfile(userId: string, useClerkAuth = true) {
     console.log('Fetching profile for user:', userId);
 
     // Get the appropriate Supabase client
-    const client = await getSupabaseClient(useClerkAuth);
+    const client = await getSupabaseClient();
 
     // First check if the table exists
     try {
@@ -138,7 +127,7 @@ export async function getInternProfile(userId: string, useClerkAuth = true) {
   }
 }
 
-export async function createOrUpdateInternProfile(profile: InternProfile, useClerkAuth = true) {
+export async function createOrUpdateInternProfile(profile: InternProfile) {
   try {
     if (!profile.user_id) {
       console.error('createOrUpdateInternProfile called with no user_id');
@@ -154,7 +143,7 @@ export async function createOrUpdateInternProfile(profile: InternProfile, useCle
     console.log('Profile data:', JSON.stringify(profile, null, 2));
 
     // Get the appropriate Supabase client
-    const client = await getSupabaseClient(useClerkAuth);
+    const client = await getSupabaseClient();
 
     // First validate the connection
     const isConnected = await validateConnection().catch((error: unknown) => {
@@ -277,7 +266,7 @@ export async function createOrUpdateInternProfile(profile: InternProfile, useCle
   }
 }
 
-export async function uploadResume(userId: string, file: File, useClerkAuth = true) {
+export async function uploadResume(userId: string, file: File) {
   try {
     if (!userId) {
       throw new Error('User ID is required');
@@ -288,7 +277,7 @@ export async function uploadResume(userId: string, file: File, useClerkAuth = tr
     }
 
     // Get the appropriate Supabase client
-    const client = await getSupabaseClient(useClerkAuth);
+    const client = await getSupabaseClient();
 
     // Create a unique file path using userId and timestamp
     const timestamp = new Date().getTime();
@@ -296,7 +285,7 @@ export async function uploadResume(userId: string, file: File, useClerkAuth = tr
     const filePath = `${userId}/${timestamp}.${fileExt}`;
 
     // Upload file to Supabase storage
-    const { data: uploadData, error: uploadError } = await client.storage
+    const { error: uploadError } = await client.storage
       .from(RESUMES_BUCKET)
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -322,7 +311,7 @@ export async function uploadResume(userId: string, file: File, useClerkAuth = tr
       user_id: userId,
       email: '', // Required by type but will be merged with existing data
       resume_url: data.publicUrl
-    } as InternProfile, useClerkAuth);
+    } as InternProfile);
 
     return data.publicUrl;
   } catch (error) {

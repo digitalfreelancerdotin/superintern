@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button"
-import { SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/nextjs"
 import Link from "next/link"
 
 export function Navbar() {
@@ -18,17 +17,10 @@ export function Navbar() {
             </Link>
           </div>
           <div>
-            <SignedOut>
-              <SignInButton>
-                <Button variant="outline">Login</Button>
-              </SignInButton>
-            </SignedOut>
-            <SignedIn>
-              <Link href="/dashboard/intern">
-                <Button variant="outline">Dashboard</Button>
-              </Link>
-              <UserButton afterSignOutUrl="/" />
-            </SignedIn>
+            <Link href="/dashboard/intern">
+              <Button variant="outline" className="mr-2">Dashboard</Button>
+            </Link>
+            <Button variant="outline">Login</Button>
           </div>
         </div>
       </div>

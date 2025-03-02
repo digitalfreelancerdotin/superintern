@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 
@@ -14,12 +13,7 @@ export default function Header() {
 
   return (
     <div className="flex items-center space-x-4 justify-end mt-4">
-      <SignedOut>
-        <SignInButton />
-      </SignedOut>
-      <SignedIn>
-        <UserButton />
-      </SignedIn>
+      <Button variant="outline">Login</Button>
       <div className="md:hidden">
         <Button
           variant="ghost"
