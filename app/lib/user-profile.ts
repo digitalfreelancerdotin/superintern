@@ -1,5 +1,6 @@
 import { supabase, RESUMES_BUCKET, validateConnection } from './supabase';
 import { PostgrestError } from '@supabase/supabase-js';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 interface InternProfile {
   user_id: string;
@@ -158,165 +159,60 @@ export async function getInternProfile(userId: string) {
   }
 }
 
-export async function createOrUpdateInternProfile(profile: InternProfile): Promise<InternProfile> {
+export async function createOrUpdateInternProfile(profile: InternProfile) {
+  const supabase = createClientComponentClient();
+  
   try {
-    // Ensure user_id is a string
+    // Validate user_id
     if (!profile.user_id) {
-      console.error('createOrUpdateInternProfile called with missing user_id');
       throw new Error('User ID is required');
     }
 
-    // Ensure user_id is treated as a string
-    const userId = String(profile.user_id);
-    console.log('User ID type:', typeof userId);
-    console.log('User ID value:', userId);
-    
-    // Update the profile object to ensure user_id is a string
-    profile.user_id = userId;
-
-    // Validate email format
-    if (typeof profile.email !== 'string' || !profile.email.includes('@')) {
-      console.error('createOrUpdateInternProfile called with invalid email format:', profile.email);
-      throw new Error('Valid email address is required');
+    // Get the current user's email and existing profile
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.email) {
+      throw new Error('User email not found');
     }
 
-    console.log('Creating/updating profile for user:', profile.user_id);
-    console.log('Profile data:', JSON.stringify(profile, null, 2));
-
-    // Get the appropriate Supabase client
-    const client = await getSupabaseClient();
-
-    // First validate the connection
-    const isConnected = await validateConnection();
-    if (!isConnected) {
-      console.error('Connection validation failed in createOrUpdateInternProfile');
-      throw new Error('Database connection failed. Please check your Supabase configuration.');
-    }
-
-    // Log the update attempt
-    console.log('Attempting upsert with data:', {
-      user_id: profile.user_id,
-      email: profile.email,
-      first_name: profile.first_name || null,
-      last_name: profile.last_name || null,
-      phone_number: profile.phone_number || null,
-      github_url: profile.github_url || null,
-      location: profile.location || null,
-      university: profile.university || null,
-      major: profile.major || null,
-      graduation_year: profile.graduation_year || null,
-      resume_url: profile.resume_url || null
-    });
-
-    // Perform the upsert operation with more detailed error handling
-    const { data: sessionData } = await client.auth.getSession();
-    console.log('Current auth status:', {
-      hasSession: !!sessionData?.session,
-      userId: sessionData?.session?.user?.id,
-      userEmail: sessionData?.session?.user?.email
-    });
-
-    const { data, error, status, statusText } = await client
-      .from('intern_profiles')
-      .upsert({
-        user_id: profile.user_id,
-        email: profile.email,
-        first_name: profile.first_name || null,
-        last_name: profile.last_name || null,
-        phone_number: profile.phone_number || null,
-        github_url: profile.github_url || null,
-        location: profile.location || null,
-        university: profile.university || null,
-        major: profile.major || null,
-        graduation_year: profile.graduation_year || null,
-        resume_url: profile.resume_url || null
-      })
-      .select();
-
-    // Log the complete response
-    console.log('Supabase response:', {
-      data,
-      error,
-      status,
-      statusText,
-      hasError: !!error,
-      errorDetails: error ? {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint
-      } : null
-    });
-
-    if (error) {
-      console.error('Detailed error information:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        status,
-        statusText
-      });
-
-      // Check for RLS policy violation
-      if (error.message?.includes('policy') || error.code === '42501') {
-        throw new Error('Permission denied: You do not have permission to update this profile. Please ensure you are properly authenticated.');
-      }
-
-      // Check for specific PostgreSQL error codes
-      if (error.code === '23505') {
-        throw new Error('A profile with this user ID already exists.');
-      } else if (error.code === '42P01') {
-        throw new Error('The intern_profiles table does not exist. Please run the SQL setup script.');
-      } else if (error.code === '42703') {
-        throw new Error('Column error: ' + error.message);
-      } else if (error.code?.startsWith('22')) {
-        throw new Error('Data type error: ' + error.message);
-      }
-
-      throw new Error(`Failed to update profile: ${error.message || 'Unknown error occurred'}`);
-    }
-
-    // Verify the update by fetching the profile
-    const { data: verifyData, error: verifyError } = await client
+    // Get existing profile data
+    const { data: existingProfile } = await supabase
       .from('intern_profiles')
       .select('*')
       .eq('user_id', profile.user_id)
       .single();
 
-    if (verifyError) {
-      console.error('Error verifying profile update:', verifyError);
-      throw new Error('Profile update could not be verified');
-    }
+    // Merge existing data with new data, preserving existing values if not provided
+    const updatedProfile = {
+      user_id: profile.user_id,
+      email: user.email,
+      first_name: profile.first_name ?? existingProfile?.first_name ?? null,
+      last_name: profile.last_name ?? existingProfile?.last_name ?? null,
+      phone_number: profile.phone_number ?? existingProfile?.phone_number ?? null,
+      github_url: profile.github_url ?? existingProfile?.github_url ?? null,
+      resume_url: profile.resume_url ?? existingProfile?.resume_url ?? null,
+      location: profile.location ?? existingProfile?.location ?? null,
+      university: profile.university ?? existingProfile?.university ?? null,
+      major: profile.major ?? existingProfile?.major ?? null,
+      graduation_year: profile.graduation_year ?? existingProfile?.graduation_year ?? null,
+      updated_at: new Date().toISOString()
+    };
 
-    if (!verifyData) {
-      throw new Error('Profile update failed: No data returned after update');
-    }
+    // Create or update the profile
+    const { error } = await supabase
+      .from('intern_profiles')
+      .upsert(updatedProfile, {
+        onConflict: 'user_id'
+      });
 
-    console.log('Profile updated and verified:', verifyData);
-    return verifyData;
-
-  } catch (error: unknown) {
-    // Enhanced error logging
-    console.error('Detailed error in createOrUpdateInternProfile:', {
-      error,
-      errorType: error instanceof Error ? 'Error' : typeof error,
-      errorMessage: error instanceof Error ? error.message : 'Unknown error',
-      errorStack: error instanceof Error ? error.stack : undefined,
-      isPostgrestError: error instanceof PostgrestError,
-      fullErrorObject: JSON.stringify(error, null, 2)
-    });
-
-    // If we got an empty error object, provide more context
-    if (error && typeof error === 'object' && Object.keys(error).length === 0) {
-      throw new Error('Database operation failed: Empty error response received. This might indicate a network issue or RLS policy violation.');
-    }
-
-    if (error instanceof Error) {
+    if (error) {
+      console.error('Error creating/updating profile:', error);
       throw error;
     }
 
-    throw new Error('Unknown error occurred while updating profile');
+    return { success: true };
+  } catch (error) {
+    console.error('Error in createOrUpdateInternProfile:', error);
+    return { success: false, error };
   }
 }
 

@@ -42,44 +42,44 @@ EXECUTE FUNCTION update_updated_at_column();
 -- Enable Row Level Security
 ALTER TABLE intern_profiles ENABLE ROW LEVEL SECURITY;
 
--- Create policies for intern_profiles
--- View policy - Users can view their own profile
+-- Drop existing policies first
 DROP POLICY IF EXISTS "Users can view their own profile" ON intern_profiles;
-CREATE POLICY "Users can view their own profile"
-  ON intern_profiles
-  FOR SELECT
-  USING (true);  -- Allow all authenticated users to view profiles for testing
-
--- Insert policy - Users can insert their own profile
 DROP POLICY IF EXISTS "Users can insert their own profile" ON intern_profiles;
-CREATE POLICY "Users can insert their own profile"
-  ON intern_profiles
-  FOR INSERT
-  WITH CHECK (true);  -- Allow all authenticated users to insert for testing
-
--- Update policy - Users can update their own profile
 DROP POLICY IF EXISTS "Users can update their own profile" ON intern_profiles;
-CREATE POLICY "Users can update their own profile"
-  ON intern_profiles
-  FOR UPDATE
-  USING (true);  -- Allow all authenticated users to update for testing
-
--- Delete policy - Users can delete their own profile
 DROP POLICY IF EXISTS "Users can delete their own profile" ON intern_profiles;
-CREATE POLICY "Users can delete their own profile"
-  ON intern_profiles
-  FOR DELETE
-  USING (true);  -- Allow all authenticated users to delete for testing
 
--- Grant permissions to authenticated users
+-- Create more permissive policies for testing
+CREATE POLICY "Users can view their own profile"
+ON intern_profiles
+FOR SELECT
+TO authenticated
+USING (true);
+
+CREATE POLICY "Users can insert their own profile"
+ON intern_profiles
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+CREATE POLICY "Users can update their own profile"
+ON intern_profiles
+FOR UPDATE
+TO authenticated
+USING (true);
+
+CREATE POLICY "Users can delete their own profile"
+ON intern_profiles
+FOR DELETE
+TO authenticated
+USING (true);
+
+-- Grant necessary permissions
 GRANT ALL ON intern_profiles TO authenticated;
 
--- Add a bypass policy for testing (ONLY USE IN DEVELOPMENT)
--- This allows any operation from the service role
-DROP POLICY IF EXISTS "Service role bypass" ON intern_profiles;
+-- Create a bypass policy for testing (ONLY USE IN DEVELOPMENT)
 CREATE POLICY "Service role bypass"
-  ON intern_profiles
-  USING (true);  -- Allow all operations for testing
+ON intern_profiles
+USING (true);
 
 -- Create a function to handle new user registration
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -113,6 +113,11 @@ WHERE proname = 'handle_new_user';
 -- you'll need to insert profiles through your application where the user is properly authenticated.
 -- Alternatively, for testing, you can manually insert a profile with a specific user_id: 
 
+-- Create resumes bucket if it doesn't exist
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('resumes', 'resumes', false)
+ON CONFLICT (id) DO NOTHING;
+
 -- Drop existing policies first
 DROP POLICY IF EXISTS "Users can upload their own resumes" ON storage.objects;
 DROP POLICY IF EXISTS "Users can update their own resumes" ON storage.objects;
@@ -124,7 +129,7 @@ CREATE POLICY "Users can upload their own resumes"
 ON storage.objects
 FOR INSERT
 TO authenticated
-WITH CHECK (bucket_id = 'resumes');  -- Only check bucket_id, no folder restrictions
+WITH CHECK (bucket_id = 'resumes');
 
 CREATE POLICY "Users can update their own resumes"
 ON storage.objects
@@ -145,4 +150,13 @@ TO authenticated
 USING (bucket_id = 'resumes');
 
 -- Enable RLS for storage.objects
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY; 
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+-- Grant necessary permissions
+GRANT ALL ON storage.objects TO authenticated;
+GRANT ALL ON storage.buckets TO authenticated;
+
+-- Create a bypass policy for testing (ONLY USE IN DEVELOPMENT)
+CREATE POLICY "Service role bypass"
+ON storage.objects
+USING (true); 
