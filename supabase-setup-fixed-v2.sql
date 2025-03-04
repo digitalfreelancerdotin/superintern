@@ -1,12 +1,3 @@
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Create a function to get the user ID from the JWT
-CREATE OR REPLACE FUNCTION requesting_user_id() 
-RETURNS TEXT AS $$
-  SELECT nullif(current_setting('request.jwt.claims', true)::json->>'sub', '')::text;
-$$ LANGUAGE sql STABLE;
-
 -- Create intern_profiles table
 CREATE TABLE IF NOT EXISTS intern_profiles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -122,6 +113,9 @@ CREATE POLICY "Public can read resumes"
   TO public
   USING (bucket_id = 'resumes');
 
+-- Grant necessary permissions to the intern_profiles table
+GRANT SELECT, INSERT, UPDATE, DELETE ON intern_profiles TO authenticated;
+
 -- Create a view to get user profiles with additional user information
 CREATE OR REPLACE VIEW public.user_profiles AS
 SELECT
@@ -133,63 +127,5 @@ FROM
 JOIN
   auth.users u ON p.user_id = u.id;
 
--- Grant necessary permissions
-GRANT SELECT, INSERT, UPDATE, DELETE ON intern_profiles TO authenticated;
-GRANT SELECT ON user_profiles TO authenticated;
-
--- Enable Storage
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Enable RLS on storage.objects
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
-ALTER TABLE storage.buckets ENABLE ROW LEVEL SECURITY;
-
--- Drop existing storage policies if any
-DROP POLICY IF EXISTS "Allow individual storage access" ON storage.objects;
-DROP POLICY IF EXISTS "Allow public read access" ON storage.objects;
-DROP POLICY IF EXISTS "Allow bucket management" ON storage.buckets;
-DROP POLICY IF EXISTS "Users can access their own storage objects" ON storage.objects;
-
--- Create storage policies
-CREATE POLICY "Allow public read access"
-ON storage.objects
-FOR SELECT
-USING (true);
-
-CREATE POLICY "Users can access their own storage objects"
-ON storage.objects
-FOR ALL
-USING (bucket_id = 'resumes' AND (storage.foldername(name))[1] = requesting_user_id())
-WITH CHECK (bucket_id = 'resumes' AND (storage.foldername(name))[1] = requesting_user_id());
-
-CREATE POLICY "Allow bucket management"
-ON storage.buckets
-FOR ALL
-USING (true)
-WITH CHECK (true);
-
--- Grant necessary permissions to the service_role
-GRANT ALL ON storage.objects TO service_role;
-GRANT ALL ON storage.buckets TO service_role;
-
--- Check the type of auth.uid()
-SELECT pg_typeof(auth.uid());
-
--- Create a simple test table
-CREATE TABLE IF NOT EXISTS test_profiles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id TEXT NOT NULL
-);
-
--- Enable RLS
-ALTER TABLE test_profiles ENABLE ROW LEVEL SECURITY;
-
--- Create a policy with TEXT type
-DROP POLICY IF EXISTS "Test policy" ON test_profiles;
-CREATE POLICY "Test policy"
-  ON test_profiles
-  FOR SELECT
-  USING (auth.uid() = user_id);
-
--- Grant permissions
-GRANT SELECT, INSERT, UPDATE, DELETE ON test_profiles TO authenticated; 
+-- Grant permissions on the view after it's created
+GRANT SELECT ON user_profiles TO authenticated; 

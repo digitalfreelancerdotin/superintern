@@ -17,8 +17,39 @@ interface InternProfile {
 
 // Helper function to get the Supabase client
 async function getSupabaseClient() {
-  await validateConnection();
-  return supabase;
+  try {
+    console.log('Getting Supabase client...');
+    
+    // Check if environment variables are set
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('Missing Supabase credentials in environment variables', {
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseAnonKey
+      });
+      throw new Error('Missing Supabase credentials. Please check your environment variables.');
+    }
+    
+    // Validate connection with detailed error handling
+    try {
+      const isConnected = await validateConnection();
+      
+      if (!isConnected) {
+        console.error('Supabase connection validation failed in getSupabaseClient');
+        throw new Error('Database connection failed. Please check your Supabase configuration and connection.');
+      }
+    } catch (validationError) {
+      console.error('Error during connection validation:', validationError);
+      throw new Error(`Database connection validation error: ${validationError instanceof Error ? validationError.message : 'Unknown error'}`);
+    }
+    
+    return supabase;
+  } catch (error) {
+    console.error('Error in getSupabaseClient:', error);
+    throw new Error(`Failed to initialize database connection: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 export async function getInternProfile(userId: string) {
@@ -127,16 +158,26 @@ export async function getInternProfile(userId: string) {
   }
 }
 
-export async function createOrUpdateInternProfile(profile: InternProfile) {
+export async function createOrUpdateInternProfile(profile: InternProfile): Promise<InternProfile> {
   try {
+    // Ensure user_id is a string
     if (!profile.user_id) {
-      console.error('createOrUpdateInternProfile called with no user_id');
+      console.error('createOrUpdateInternProfile called with missing user_id');
       throw new Error('User ID is required');
     }
 
-    if (!profile.email) {
-      console.error('createOrUpdateInternProfile called with no email');
-      throw new Error('Email is required');
+    // Ensure user_id is treated as a string
+    const userId = String(profile.user_id);
+    console.log('User ID type:', typeof userId);
+    console.log('User ID value:', userId);
+    
+    // Update the profile object to ensure user_id is a string
+    profile.user_id = userId;
+
+    // Validate email format
+    if (typeof profile.email !== 'string' || !profile.email.includes('@')) {
+      console.error('createOrUpdateInternProfile called with invalid email format:', profile.email);
+      throw new Error('Valid email address is required');
     }
 
     console.log('Creating/updating profile for user:', profile.user_id);
@@ -146,122 +187,135 @@ export async function createOrUpdateInternProfile(profile: InternProfile) {
     const client = await getSupabaseClient();
 
     // First validate the connection
-    const isConnected = await validateConnection().catch((error: unknown) => {
-      console.error('Connection validation failed in createOrUpdateInternProfile:', error);
-      return false;
-    });
-
+    const isConnected = await validateConnection();
     if (!isConnected) {
+      console.error('Connection validation failed in createOrUpdateInternProfile');
       throw new Error('Database connection failed. Please check your Supabase configuration.');
     }
 
-    // Check if profile exists
-    console.log('Checking if profile exists...');
-    const { data: existingProfile, error: fetchError, status: fetchStatus } = await client
+    // Log the update attempt
+    console.log('Attempting upsert with data:', {
+      user_id: profile.user_id,
+      email: profile.email,
+      first_name: profile.first_name || null,
+      last_name: profile.last_name || null,
+      phone_number: profile.phone_number || null,
+      github_url: profile.github_url || null,
+      location: profile.location || null,
+      university: profile.university || null,
+      major: profile.major || null,
+      graduation_year: profile.graduation_year || null,
+      resume_url: profile.resume_url || null
+    });
+
+    // Perform the upsert operation with more detailed error handling
+    const { data: sessionData } = await client.auth.getSession();
+    console.log('Current auth status:', {
+      hasSession: !!sessionData?.session,
+      userId: sessionData?.session?.user?.id,
+      userEmail: sessionData?.session?.user?.email
+    });
+
+    const { data, error, status, statusText } = await client
+      .from('intern_profiles')
+      .upsert({
+        user_id: profile.user_id,
+        email: profile.email,
+        first_name: profile.first_name || null,
+        last_name: profile.last_name || null,
+        phone_number: profile.phone_number || null,
+        github_url: profile.github_url || null,
+        location: profile.location || null,
+        university: profile.university || null,
+        major: profile.major || null,
+        graduation_year: profile.graduation_year || null,
+        resume_url: profile.resume_url || null
+      })
+      .select();
+
+    // Log the complete response
+    console.log('Supabase response:', {
+      data,
+      error,
+      status,
+      statusText,
+      hasError: !!error,
+      errorDetails: error ? {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      } : null
+    });
+
+    if (error) {
+      console.error('Detailed error information:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        status,
+        statusText
+      });
+
+      // Check for RLS policy violation
+      if (error.message?.includes('policy') || error.code === '42501') {
+        throw new Error('Permission denied: You do not have permission to update this profile. Please ensure you are properly authenticated.');
+      }
+
+      // Check for specific PostgreSQL error codes
+      if (error.code === '23505') {
+        throw new Error('A profile with this user ID already exists.');
+      } else if (error.code === '42P01') {
+        throw new Error('The intern_profiles table does not exist. Please run the SQL setup script.');
+      } else if (error.code === '42703') {
+        throw new Error('Column error: ' + error.message);
+      } else if (error.code?.startsWith('22')) {
+        throw new Error('Data type error: ' + error.message);
+      }
+
+      throw new Error(`Failed to update profile: ${error.message || 'Unknown error occurred'}`);
+    }
+
+    // Verify the update by fetching the profile
+    const { data: verifyData, error: verifyError } = await client
       .from('intern_profiles')
       .select('*')
       .eq('user_id', profile.user_id)
-      .maybeSingle();
+      .single();
 
-    console.log('Fetch profile result:', { existingProfile, fetchError, fetchStatus });
-
-    if (fetchError) {
-      console.error('Error fetching existing profile:', {
-        code: fetchError.code,
-        message: fetchError.message,
-        details: fetchError.details,
-        status: fetchStatus
-      });
-      throw new Error(`Failed to check existing profile: ${fetchError.message}`);
+    if (verifyError) {
+      console.error('Error verifying profile update:', verifyError);
+      throw new Error('Profile update could not be verified');
     }
 
-    if (!existingProfile) {
-      // Create new profile
-      console.log('Creating new profile...');
-      const { data, error, status } = await client
-        .from('intern_profiles')
-        .insert([{
-          user_id: profile.user_id,
-          email: profile.email,
-          first_name: profile.first_name || null,
-          last_name: profile.last_name || null,
-          phone_number: profile.phone_number || null,
-          github_url: profile.github_url || null,
-          location: profile.location || null,
-          university: profile.university || null,
-          major: profile.major || null,
-          graduation_year: profile.graduation_year || null,
-          resume_url: profile.resume_url || null
-        }])
-        .select()
-        .single();
-
-      console.log('Insert result:', { data, error, status });
-
-      if (error) {
-        console.error('Error creating intern profile:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          status
-        });
-        throw new Error(`Failed to create profile: ${error.message}`);
-      }
-
-      console.log('Profile created successfully:', data);
-      return data;
-    } else {
-      // Update existing profile
-      console.log('Updating existing profile...');
-      const { data, error, status } = await client
-        .from('intern_profiles')
-        .update({
-          email: profile.email,
-          first_name: profile.first_name || existingProfile.first_name,
-          last_name: profile.last_name || existingProfile.last_name,
-          phone_number: profile.phone_number || existingProfile.phone_number,
-          github_url: profile.github_url || existingProfile.github_url,
-          location: profile.location || existingProfile.location,
-          university: profile.university || existingProfile.university,
-          major: profile.major || existingProfile.major,
-          graduation_year: profile.graduation_year || existingProfile.graduation_year,
-          resume_url: profile.resume_url || existingProfile.resume_url
-        })
-        .eq('user_id', profile.user_id)
-        .select()
-        .single();
-
-      console.log('Update result:', { data, error, status });
-
-      if (error) {
-        console.error('Error updating intern profile:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          status
-        });
-        throw new Error(`Failed to update profile: ${error.message}`);
-      }
-
-      console.log('Profile updated successfully:', data);
-      return data;
+    if (!verifyData) {
+      throw new Error('Profile update failed: No data returned after update');
     }
+
+    console.log('Profile updated and verified:', verifyData);
+    return verifyData;
+
   } catch (error: unknown) {
-    console.error('Error in createOrUpdateInternProfile:', {
+    // Enhanced error logging
+    console.error('Detailed error in createOrUpdateInternProfile:', {
       error,
       errorType: error instanceof Error ? 'Error' : typeof error,
       errorMessage: error instanceof Error ? error.message : 'Unknown error',
-      errorStack: error instanceof Error ? error.stack : undefined
+      errorStack: error instanceof Error ? error.stack : undefined,
+      isPostgrestError: error instanceof PostgrestError,
+      fullErrorObject: JSON.stringify(error, null, 2)
     });
-    
-    // If we got an empty error object, provide a more helpful error message
+
+    // If we got an empty error object, provide more context
     if (error && typeof error === 'object' && Object.keys(error).length === 0) {
-      throw new Error('Database connection failed. Please check your Supabase configuration and connection.');
+      throw new Error('Database operation failed: Empty error response received. This might indicate a network issue or RLS policy violation.');
     }
-    
+
     if (error instanceof Error) {
       throw error;
     }
+
     throw new Error('Unknown error occurred while updating profile');
   }
 }

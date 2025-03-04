@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { AuthButton } from "@/app/components/auth/auth-button"
 
 export function Navbar() {
   return (
@@ -16,11 +17,8 @@ export function Navbar() {
               </div>
             </Link>
           </div>
-          <div>
-            <Link href="/dashboard/intern">
-              <Button variant="outline" className="mr-2">Dashboard</Button>
-            </Link>
-            <Button variant="outline">Login</Button>
+          <div className="flex items-center gap-2">
+            <AuthButton />
           </div>
         </div>
       </div>

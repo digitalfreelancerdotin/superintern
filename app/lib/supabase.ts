@@ -19,12 +19,17 @@ console.log('Initializing Supabase client with URL:', supabaseUrl);
 // Create the main client for general operations
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
   },
   db: {
     schema: 'public'
+  },
+  global: {
+    headers: {
+      'x-application-name': 'superintern'
+    }
   }
 });
 
@@ -45,7 +50,21 @@ export const validateConnection = async () => {
     // First check if we can connect to Supabase at all
     console.log('Checking basic connection...');
     try {
-      const { error: healthError } = await supabase.from('intern_profiles').select('count');
+      // Try a simple auth check first - this is more reliable
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      
+      if (authError) {
+        console.error('Auth check failed:', authError);
+        return false;
+      }
+      
+      console.log('Auth check succeeded, session:', authData?.session ? 'exists' : 'null');
+      
+      // Then try a simple query to check database access
+      const { data: healthData, error: healthError } = await supabase
+        .from('intern_profiles')
+        .select('count')
+        .limit(1);
       
       if (healthError) {
         console.error('Health check failed:', {
@@ -53,7 +72,31 @@ export const validateConnection = async () => {
           message: healthError.message,
           details: healthError.details
         });
-        return false;
+        
+        // If the error is about the table not existing, that's a different issue
+        if (healthError.message?.includes('does not exist')) {
+          console.error('The intern_profiles table does not exist. Please run the SQL setup script.');
+          return false;
+        }
+        
+        // Try a different approach - just check if we can access any system info
+        try {
+          const { data: systemData, error: systemError } = await supabase
+            .from('_prisma_migrations')
+            .select('count')
+            .limit(1)
+            .maybeSingle();
+            
+          if (systemError && !systemError.message?.includes('does not exist')) {
+            console.error('System table check failed:', systemError);
+            return false;
+          }
+        } catch (systemCheckError) {
+          console.error('System check threw an exception:', systemCheckError);
+          // Continue anyway - this is just an additional check
+        }
+      } else {
+        console.log('Health check succeeded:', healthData);
       }
     } catch (healthCheckError) {
       console.error('Health check threw an exception:', healthCheckError);
@@ -87,19 +130,16 @@ export const validateConnection = async () => {
           message: error.message,
           details: error.details
         });
+        
+        // If the error is about the table not existing, we can still consider the connection valid
+        if (error.message?.includes('does not exist')) {
+          console.warn('The intern_profiles table does not exist, but connection is valid.');
+          return true;
+        }
+        
         return false;
       }
       
-      // Check if the table exists by examining the response
-      if (status === 400 && error) {
-        // Use type assertion to handle the error object
-        const postgrestError = error as { message?: string };
-        
-        if (postgrestError.message && postgrestError.message.includes('does not exist')) {
-          console.error('The intern_profiles table does not exist. Please run the SQL setup script.');
-          return false;
-        }
-      }
     } catch (queryError) {
       console.error('Query test threw an exception:', queryError);
       return false;
@@ -228,6 +268,45 @@ export const initStorage = async () => {
       errorType: error instanceof Error ? 'Error' : typeof error,
       errorMessage: error instanceof Error ? error.message : 'Unknown error'
     });
+    throw error;
+  }
+};
+
+// Get a client with the user's auth session
+export const getSupabaseClient = async () => {
+  try {
+    console.log('Getting Supabase client with auth session...');
+    
+    // Check if environment variables are properly set
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('Missing Supabase credentials in environment variables');
+      throw new Error('Missing Supabase credentials. Please check your environment variables.');
+    }
+    
+    // Get the current session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error('Error getting session:', sessionError);
+      throw new Error(`Authentication error: ${sessionError.message}`);
+    }
+    
+    console.log('Session retrieved:', session ? 'exists' : 'null');
+    
+    if (!session) {
+      console.warn('No active session found. User is not authenticated.');
+      // Return the regular client, but operations will be subject to RLS
+      return supabase;
+    }
+    
+    // Log the user ID for debugging
+    console.log('Authenticated user ID:', session.user.id);
+    console.log('User ID type:', typeof session.user.id);
+    
+    // Return the client with the session
+    return supabase;
+  } catch (error) {
+    console.error('Error in getSupabaseClient:', error);
     throw error;
   }
 }; 

@@ -52,8 +52,8 @@ export function Features() {
   }, [scrollYProgress]);
 
   return (
-    <div ref={containerRef} className="py-20 px-4 relative min-h-screen">
-      <div className="max-w-4xl mx-auto space-y-32 relative">
+    <div ref={containerRef} className="py-12 px-4 relative min-h-screen">
+      <div className="max-w-4xl mx-auto space-y-16 relative">
         {/* Vertical Line with Moving Arrow */}
         <div className="absolute left-1/2 -translate-x-1/2 top-4 h-[calc(100%-2rem)]">
           <div className="h-full w-[2px] bg-blue-500 relative">
@@ -72,11 +72,13 @@ export function Features() {
 
         {/* First Row - Left Content */}
         <div className="flex items-center justify-between gap-16">
-          <div className="max-w-sm">
-            <h3 className="text-2xl font-bold mb-4">
+          <div className="max-w-sm group transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg rounded-xl p-6 hover:bg-gray-50">
+            <h3 className="text-2xl font-bold mb-4 group-hover:text-indigo-600 transition-colors duration-300">
               Pick Free Tasks
             </h3>
-            <p className="text-slate-600 mb-4">Start your journey by completing free tasks and earning points. Build your portfolio while learning new skills.</p>
+            <p className="text-slate-600 mb-4 group-hover:text-gray-700 transition-colors duration-300">
+              Start your journey by completing free tasks and earning points. Build your portfolio while learning new skills.
+            </p>
           </div>
           <div className="max-w-sm" /> {/* Empty div for spacing */}
         </div>
@@ -84,21 +86,25 @@ export function Features() {
         {/* Second Row - Right Content */}
         <div className="flex items-center justify-between gap-16">
           <div className="max-w-sm" /> {/* Empty div for spacing */}
-          <div className="max-w-sm text-right">
-            <h3 className="text-2xl font-bold mb-4">
+          <div className="max-w-sm text-right group transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg rounded-xl p-6 hover:bg-gray-50">
+            <h3 className="text-2xl font-bold mb-4 group-hover:text-indigo-600 transition-colors duration-300">
               Unlock Paid Tasks
             </h3>
-            <p className="text-slate-600">Once you reach the required points threshold, gain access to paid tasks and start earning rewards.</p>
+            <p className="text-slate-600 group-hover:text-gray-700 transition-colors duration-300">
+              Once you reach the required points threshold, gain access to paid tasks and start earning rewards.
+            </p>
           </div>
         </div>
 
         {/* Third Row - Left Content */}
         <div className="flex items-center justify-between gap-16">
-          <div className="max-w-sm">
-            <h3 className="text-2xl font-bold mb-4">
+          <div className="max-w-sm group transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg rounded-xl p-6 hover:bg-gray-50">
+            <h3 className="text-2xl font-bold mb-4 group-hover:text-indigo-600 transition-colors duration-300">
               Refer Friends
             </h3>
-            <p className="text-slate-600">Invite your friends to join TopInterns. Earn bonus points when they complete their first task.</p>
+            <p className="text-slate-600 group-hover:text-gray-700 transition-colors duration-300">
+              Invite your friends to join TopInterns. Earn bonus points when they complete their first task.
+            </p>
           </div>
           <div className="max-w-sm" /> {/* Empty div for spacing */}
         </div>
@@ -106,11 +112,13 @@ export function Features() {
         {/* Fourth Row - Right Content */}
         <div className="flex items-center justify-between gap-16">
           <div className="max-w-sm" /> {/* Empty div for spacing */}
-          <div className="max-w-sm text-right">
-            <h3 className="text-2xl font-bold mb-4">
+          <div className="max-w-sm text-right group transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg rounded-xl p-6 hover:bg-gray-50">
+            <h3 className="text-2xl font-bold mb-4 group-hover:text-indigo-600 transition-colors duration-300">
               Earn Badges
             </h3>
-            <p className="text-slate-600">Get recognized for your achievements. Earn badges as you complete tasks and get them approved by admins.</p>
+            <p className="text-slate-600 group-hover:text-gray-700 transition-colors duration-300">
+              Get recognized for your achievements. Earn badges as you complete tasks and get them approved by admins.
+            </p>
           </div>
         </div>
       </div>
