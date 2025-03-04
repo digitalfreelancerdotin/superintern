@@ -26,21 +26,55 @@ export async function GET(request: NextRequest) {
 
     // Ensure intern profile exists
     if (data?.user) {
-      console.log('AuthCallback: Creating/updating intern profile for user:', data.user.id);
-      const { error: profileError } = await supabase
+      console.log('AuthCallback: Checking intern profile for user:', data.user.id);
+      
+      // First check if profile exists
+      const { data: existingProfile } = await supabase
         .from('intern_profiles')
-        .upsert(
-          { 
-            user_id: data.user.id,
-            email: data.user.email,
-            updated_at: new Date().toISOString()
-          },
-          { onConflict: 'user_id' }
-        );
+        .select('*')
+        .eq('user_id', data.user.id)
+        .single();
 
-      if (profileError) {
-        console.error('Intern profile creation error:', profileError);
-        // Don't redirect on profile error, just log it
+      if (!existingProfile) {
+        console.log('AuthCallback: Profile not found, creating new profile');
+        // Profile doesn't exist, create it
+        const { error: profileError } = await supabase
+          .from('intern_profiles')
+          .insert([
+            {
+              user_id: data.user.id,
+              email: data.user.email,
+              first_name: data.user.user_metadata?.given_name || '',
+              last_name: data.user.user_metadata?.family_name || '',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+          ]);
+
+        if (profileError) {
+          console.error('Intern profile creation error:', profileError);
+          // Log error but don't redirect - the trigger might have created it
+        } else {
+          console.log('Intern profile created successfully');
+        }
+      } else {
+        console.log('AuthCallback: Profile exists, updating metadata');
+        // Profile exists, update metadata
+        const { error: updateError } = await supabase
+          .from('intern_profiles')
+          .update({
+            email: data.user.email,
+            first_name: data.user.user_metadata?.given_name || existingProfile.first_name,
+            last_name: data.user.user_metadata?.family_name || existingProfile.last_name,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', data.user.id);
+
+        if (updateError) {
+          console.error('Intern profile update error:', updateError);
+        } else {
+          console.log('Intern profile updated successfully');
+        }
       }
     }
 

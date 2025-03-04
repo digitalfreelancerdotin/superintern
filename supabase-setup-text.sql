@@ -99,17 +99,19 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Note: Since auth.uid() returns NULL in the SQL Editor context,
--- you'll need to insert profiles through your application where the user is properly authenticated.
--- Alternatively, for testing, you can manually insert a profile with a specific user_id: 
-
+-- Verify trigger exists and is enabled
 SELECT tgname, tgenabled 
 FROM pg_trigger 
 WHERE tgname = 'on_auth_user_created';
 
+-- Verify function exists
 SELECT proname, prosrc 
 FROM pg_proc 
 WHERE proname = 'handle_new_user';
+
+-- Note: Since auth.uid() returns NULL in the SQL Editor context,
+-- you'll need to insert profiles through your application where the user is properly authenticated.
+-- Alternatively, for testing, you can manually insert a profile with a specific user_id: 
 
 -- Drop existing policies first
 DROP POLICY IF EXISTS "Users can upload their own resumes" ON storage.objects;

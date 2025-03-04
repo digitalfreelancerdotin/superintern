@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useRouter } from 'next/navigation';
 
 type AuthContextType = {
   user: User | null;
@@ -19,6 +20,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const supabase = createClientComponentClient();
+  const router = useRouter();
 
   useEffect(() => {
     // Initialize auth state
@@ -30,6 +32,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         setSession(currentSession);
         setUser(currentSession?.user || null);
+
+        // If user is authenticated, redirect to dashboard
+        if (currentSession?.user) {
+          router.push('/dashboard/intern');
+        }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
@@ -45,13 +52,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user || null);
       setIsLoading(false);
+
+      // Handle auth state changes
+      if (event === 'SIGNED_IN' && session?.user) {
+        router.push('/dashboard/intern');
+      } else if (event === 'SIGNED_OUT') {
+        router.push('/');
+      }
     });
 
     // Clean up listener on unmount
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase.auth]);
+  }, [supabase.auth, router]);
 
   // Sign in with Google
   const signInWithGoogle = async () => {
@@ -62,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -91,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) throw error;
       setUser(null);
       setSession(null);
+      router.push('/');
     } catch (error) {
       console.error('Error signing out:', error);
       throw error;
