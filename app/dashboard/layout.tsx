@@ -1,4 +1,4 @@
-import { Navbar } from "../components/Navbar";
+import Navbar from "../components/Navbar";
 import { Sidebar } from "../components/Sidebar";
 import SupabaseDebugLinks from '../components/supabase-debug-links';
 
