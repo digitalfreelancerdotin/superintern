@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Navbar } from "./Navbar";
+import Navbar from "./Navbar";
 import Hero from "./Hero";
 import { Features } from "./Features";
 import { InternTable } from "./InternTable";

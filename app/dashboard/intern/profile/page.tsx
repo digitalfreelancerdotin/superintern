@@ -9,6 +9,8 @@ import { createOrUpdateInternProfile, uploadResume, getInternProfile } from "../
 import { useToast } from "@/app/components/ui/use-toast";
 import { initStorage, validateConnection } from "../../../lib/supabase";
 import { useAuth } from "@/app/context/auth-context";
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { User } from '@supabase/supabase-js';
 
 interface FormData {
   firstName: string;
@@ -45,6 +47,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [profile, setProfile] = useState(null);
 
   const loadProfile = useCallback(async () => {
     if (!user) {
@@ -60,26 +63,26 @@ export default function ProfilePage() {
     
     try {
       // Get the profile using the user ID from Supabase
-      const profile = await getInternProfile(user.id);
+      const data = await getInternProfile(user.id);
       
-      if (profile) {
-        console.log('Existing profile found:', profile);
+      if (data) {
+        console.log('Existing profile found:', data);
+        setProfile(data);
         setFormData({
-          firstName: profile.first_name || '',
-          lastName: profile.last_name || '',
-          email: profile.email || user.email || '',
-          phone: profile.phone_number || '',
-          githubUrl: profile.github_url || '',
-          location: profile.location || '',
-          phoneNumber: profile.phone_number || '',
-          university: profile.university || '',
-          major: profile.major || '',
-          graduationYear: profile.graduation_year || '',
-          resumeUrl: profile.resume_url || '',
+          firstName: data.first_name || '',
+          lastName: data.last_name || '',
+          email: data.email || user.email || '',
+          phone: data.phone_number || '',
+          githubUrl: data.github_url || '',
+          location: data.location || '',
+          phoneNumber: data.phone_number || '',
+          university: data.university || '',
+          major: data.major || '',
+          graduationYear: data.graduation_year || '',
+          resumeUrl: data.resume_url || '',
         });
       } else {
         console.log('No existing profile found, creating initial profile');
-        // Create initial profile with basic information from Supabase user
         if (!user.email) {
           console.warn('Warning: Creating profile with no email. User object:', user);
         }

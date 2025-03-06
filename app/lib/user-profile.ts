@@ -55,107 +55,81 @@ async function getSupabaseClient() {
 
 export async function getInternProfile(userId: string) {
   try {
+    console.log('[getInternProfile] Starting profile fetch for userId:', userId);
+    
     if (!userId) {
-      console.error('getInternProfile called with no userId');
-      throw new Error('User ID is required');
+      console.error('[getInternProfile] No userId provided');
+      throw new Error('User ID is required for fetching profile');
     }
 
-    console.log('Fetching profile for user:', userId);
-
-    // Get the appropriate Supabase client
-    const client = await getSupabaseClient();
-
-    // First check if the table exists
-    try {
-      const { error: tableCheckError } = await client
-        .from('intern_profiles')
-        .select('count')
-        .limit(1);
-      
-      if (tableCheckError) {
-        console.error('Table check failed:', tableCheckError);
-        
-        // Check if the error indicates the table doesn't exist
-        if (typeof tableCheckError === 'object' && 
-            tableCheckError !== null && 
-            'message' in tableCheckError && 
-            typeof tableCheckError.message === 'string' && 
-            tableCheckError.message.includes('does not exist')) {
-          throw new Error('The intern_profiles table does not exist. Please run the SQL setup script in your Supabase dashboard.');
-        }
-      }
-    } catch (tableError) {
-      console.error('Error checking if table exists:', tableError);
-      throw new Error('Failed to check if the intern_profiles table exists. Please verify your Supabase setup.');
+    console.log('[getInternProfile] Creating Supabase client...');
+    const supabase = createClientComponentClient();
+    
+    console.log('[getInternProfile] Getting session...');
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error('[getInternProfile] Session error:', sessionError);
+      throw new Error(`Session error: ${sessionError.message}`);
+    }
+    
+    if (!sessionData.session) {
+      console.error('[getInternProfile] No active session found');
+      throw new Error('No active session found');
     }
 
-    // Then validate the connection
-    const isConnected = await validateConnection().catch((error: unknown) => {
-      console.error('Connection validation failed:', error);
-      return false;
-    });
-
-    if (!isConnected) {
-      throw new Error('Database connection failed. Please check your Supabase configuration.');
-    }
-
-    // Query the profile with explicit error handling
-    console.log('Querying profile with user_id:', userId);
-    const { data, error, status, statusText } = await client
+    console.log('[getInternProfile] Session found, fetching profile...');
+    const { data: profile, error: profileError } = await supabase
       .from('intern_profiles')
       .select('*')
       .eq('user_id', userId)
-      .maybeSingle();
+      .single();
 
-    console.log('Profile query response:', { 
-      data, 
-      error: error ? JSON.stringify(error) : null,
-      status, 
-      statusText 
-    });
-
-    if (error) {
-      console.error('Error fetching intern profile:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        status,
-        statusText,
-        fullError: JSON.stringify(error)
-      });
-      throw new Error(`Database query error: ${error.message || 'Unknown database error'}`);
+    if (profileError) {
+      console.error('[getInternProfile] Database error:', profileError);
+      throw new Error(`Database error: ${profileError.message}`);
     }
 
-    // If no data found, return null (this is not an error case)
-    if (!data) {
-      console.log('No profile found for user:', userId);
-      return null;
+    if (!profile) {
+      console.log('[getInternProfile] No profile found for user:', userId);
+      // Instead of returning null, let's create a new profile
+      console.log('[getInternProfile] Attempting to create new profile...');
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (!userData.user?.email) {
+        throw new Error('User email not found');
+      }
+
+      const newProfile = {
+        user_id: userId,
+        email: userData.user.email,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { data: createdProfile, error: createError } = await supabase
+        .from('intern_profiles')
+        .insert([newProfile])
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('[getInternProfile] Error creating new profile:', createError);
+        throw new Error(`Failed to create new profile: ${createError.message}`);
+      }
+
+      console.log('[getInternProfile] Created new profile:', createdProfile);
+      return createdProfile;
     }
 
-    console.log('Profile found:', data);
-    return data;
-  } catch (error: unknown) {
-    console.error('Error in getInternProfile:', {
-      error,
-      errorType: error instanceof Error ? 'Error' : typeof error,
-      errorMessage: error instanceof Error ? error.message : 'Unknown error',
-      errorStack: error instanceof Error ? error.stack : undefined,
-      fullError: error ? JSON.stringify(error) : 'null'
-    });
-
-    // If we got an empty error object, provide a more helpful error message
-    if (error && typeof error === 'object' && Object.keys(error).length === 0) {
-      console.error('Empty error object detected. This usually indicates a connection issue or missing table.');
-      throw new Error('Database connection failed or table does not exist. Please run the SQL setup script in your Supabase dashboard.');
-    }
-
-    // Ensure we always throw an Error object
+    console.log('[getInternProfile] Successfully found profile:', profile);
+    return profile;
+  } catch (error) {
+    console.error('[getInternProfile] Caught error:', error);
     if (error instanceof Error) {
-      throw error;
+      throw new Error(`Profile fetch failed: ${error.message}`);
     }
-    
-    // Convert unknown error types to Error object
-    throw new Error(typeof error === 'string' ? error : 'Unknown error occurred while fetching profile');
+    throw new Error(`Profile fetch failed: ${JSON.stringify(error)}`);
   }
 }
 

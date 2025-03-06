@@ -1,12 +1,25 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Drop existing table if it exists
-DROP TABLE IF EXISTS intern_profiles;
+-- Drop existing policies manually first
+DROP POLICY IF EXISTS "Users can view their own profile or admins can view all" ON intern_profiles;
+DROP POLICY IF EXISTS "Temporary full access" ON intern_profiles;
+DROP POLICY IF EXISTS "Users can update their own profile or admins can update all" ON intern_profiles;
+DROP POLICY IF EXISTS "Users can delete their own profile or admins can delete any" ON intern_profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON intern_profiles;
+DROP POLICY IF EXISTS "Users can insert own profile" ON intern_profiles;
+DROP POLICY IF EXISTS "Allow all operations for authenticated users" ON intern_profiles;
 
--- Create intern_profiles table with user_id as primary key
-CREATE TABLE IF NOT EXISTS intern_profiles (
-  user_id TEXT PRIMARY KEY,  -- This directly matches auth.uid()
+-- Disable RLS temporarily
+ALTER TABLE intern_profiles DISABLE ROW LEVEL SECURITY;
+
+-- Drop and recreate tables to ensure clean state
+DROP TABLE IF EXISTS tasks CASCADE;
+DROP TABLE IF EXISTS intern_profiles CASCADE;
+
+-- Create intern_profiles table
+CREATE TABLE intern_profiles (
+  user_id UUID PRIMARY KEY,
   email TEXT NOT NULL,
   first_name TEXT,
   last_name TEXT,
@@ -18,10 +31,28 @@ CREATE TABLE IF NOT EXISTS intern_profiles (
   major TEXT,
   graduation_year TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  is_admin BOOLEAN DEFAULT false
 );
 
--- Create a function to update the updated_at timestamp
+-- Create tasks table
+CREATE TABLE tasks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT NOT NULL,
+  description TEXT,
+  points INTEGER NOT NULL,
+  is_paid BOOLEAN DEFAULT false,
+  payment_amount DECIMAL(10,2),
+  status TEXT DEFAULT 'open',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by UUID REFERENCES intern_profiles(user_id),
+  assigned_to UUID REFERENCES intern_profiles(user_id),
+  completed_at TIMESTAMP WITH TIME ZONE,
+  CONSTRAINT valid_status CHECK (status IN ('open', 'assigned', 'in_progress', 'completed', 'cancelled'))
+);
+
+-- Create the update timestamp function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -30,133 +61,136 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Drop the trigger if it exists and recreate it
-DROP TRIGGER IF EXISTS update_intern_profiles_updated_at ON intern_profiles;
-
--- Create a trigger to update the updated_at timestamp
+-- Create triggers for updated_at
 CREATE TRIGGER update_intern_profiles_updated_at
 BEFORE UPDATE ON intern_profiles
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
--- Enable Row Level Security
+CREATE TRIGGER update_tasks_updated_at
+BEFORE UPDATE ON tasks
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Enable RLS
 ALTER TABLE intern_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies first
-DROP POLICY IF EXISTS "Users can view their own profile" ON intern_profiles;
-DROP POLICY IF EXISTS "Users can insert their own profile" ON intern_profiles;
-DROP POLICY IF EXISTS "Users can update their own profile" ON intern_profiles;
-DROP POLICY IF EXISTS "Users can delete their own profile" ON intern_profiles;
-
--- Create more permissive policies for testing
-CREATE POLICY "Users can view their own profile"
+-- Create policies for intern_profiles
+CREATE POLICY "Allow all operations for authenticated users"
 ON intern_profiles
-FOR SELECT
+FOR ALL
 TO authenticated
-USING (true);
-
-CREATE POLICY "Users can insert their own profile"
-ON intern_profiles
-FOR INSERT
-TO authenticated
+USING (true)
 WITH CHECK (true);
 
-CREATE POLICY "Users can update their own profile"
-ON intern_profiles
+-- Create policies for tasks
+CREATE POLICY "Users can view tasks assigned to them"
+ON tasks
+FOR SELECT
+TO authenticated
+USING (
+  assigned_to = auth.uid()::uuid
+  OR created_by = auth.uid()::uuid
+  OR EXISTS (
+    SELECT 1 FROM intern_profiles
+    WHERE user_id = auth.uid()
+    AND is_admin = true
+  )
+);
+
+CREATE POLICY "Admins can create tasks"
+ON tasks
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM intern_profiles
+    WHERE user_id = auth.uid()
+    AND is_admin = true
+  )
+);
+
+CREATE POLICY "Admins can update tasks"
+ON tasks
 FOR UPDATE
 TO authenticated
-USING (true);
+USING (
+  EXISTS (
+    SELECT 1 FROM intern_profiles
+    WHERE user_id = auth.uid()
+    AND is_admin = true
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM intern_profiles
+    WHERE user_id = auth.uid()
+    AND is_admin = true
+  )
+);
 
-CREATE POLICY "Users can delete their own profile"
-ON intern_profiles
+CREATE POLICY "Admins can delete tasks"
+ON tasks
 FOR DELETE
 TO authenticated
-USING (true);
+USING (
+  EXISTS (
+    SELECT 1 FROM intern_profiles
+    WHERE user_id = auth.uid()
+    AND is_admin = true
+  )
+);
 
--- Grant necessary permissions
+-- Grant permissions
 GRANT ALL ON intern_profiles TO authenticated;
+GRANT ALL ON tasks TO authenticated;
 
--- Create a bypass policy for testing (ONLY USE IN DEVELOPMENT)
-CREATE POLICY "Service role bypass"
-ON intern_profiles
-USING (true);
-
--- Create a function to handle new user registration
+-- Create the new user handler function
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO public.intern_profiles (user_id, email)
-  VALUES (new.id, new.email);
+  VALUES (new.id::uuid, new.email)
+  ON CONFLICT (user_id) DO NOTHING;
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Drop the trigger if it exists
+-- Create the trigger for new users
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-
--- Create the trigger for automatic profile creation
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Verify trigger exists and is enabled
-SELECT tgname, tgenabled 
-FROM pg_trigger 
-WHERE tgname = 'on_auth_user_created';
-
--- Verify function exists
-SELECT proname, prosrc 
-FROM pg_proc 
-WHERE proname = 'handle_new_user';
-
--- Note: Since auth.uid() returns NULL in the SQL Editor context,
--- you'll need to insert profiles through your application where the user is properly authenticated.
--- Alternatively, for testing, you can manually insert a profile with a specific user_id: 
-
--- Create resumes bucket if it doesn't exist
+-- Storage setup
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('resumes', 'resumes', false)
 ON CONFLICT (id) DO NOTHING;
 
--- Drop existing policies first
+-- Drop storage policies manually
 DROP POLICY IF EXISTS "Users can upload their own resumes" ON storage.objects;
 DROP POLICY IF EXISTS "Users can update their own resumes" ON storage.objects;
 DROP POLICY IF EXISTS "Users can read their own resumes" ON storage.objects;
 DROP POLICY IF EXISTS "Users can delete their own resumes" ON storage.objects;
+DROP POLICY IF EXISTS "Service role bypass" ON storage.objects;
+DROP POLICY IF EXISTS "Enable resume upload for users" ON storage.objects;
+DROP POLICY IF EXISTS "Enable resume update for users" ON storage.objects;
+DROP POLICY IF EXISTS "Enable resume read for users" ON storage.objects;
+DROP POLICY IF EXISTS "Enable resume delete for users" ON storage.objects;
+DROP POLICY IF EXISTS "Allow all storage operations" ON storage.objects;
 
--- Create more permissive policies for testing
-CREATE POLICY "Users can upload their own resumes"
+-- Create storage policies
+CREATE POLICY "Allow all storage operations"
 ON storage.objects
-FOR INSERT
+FOR ALL
 TO authenticated
-WITH CHECK (bucket_id = 'resumes');
+USING (true)
+WITH CHECK (true);
 
-CREATE POLICY "Users can update their own resumes"
-ON storage.objects
-FOR UPDATE
-TO authenticated
-USING (bucket_id = 'resumes');
-
-CREATE POLICY "Users can read their own resumes"
-ON storage.objects
-FOR SELECT
-TO authenticated
-USING (bucket_id = 'resumes');
-
-CREATE POLICY "Users can delete their own resumes"
-ON storage.objects
-FOR DELETE
-TO authenticated
-USING (bucket_id = 'resumes');
-
--- Enable RLS for storage.objects
+-- Enable RLS for storage
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 
--- Grant necessary permissions
+-- Grant storage permissions
 GRANT ALL ON storage.objects TO authenticated;
-GRANT ALL ON storage.buckets TO authenticated;
-
--- Create a bypass policy for testing (ONLY USE IN DEVELOPMENT)
-CREATE POLICY "Service role bypass"
-ON storage.objects
-USING (true); 
+GRANT ALL ON storage.buckets TO authenticated; 
