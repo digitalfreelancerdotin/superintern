@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../context/auth-context';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -10,36 +10,44 @@ import { LayoutDashboard, ListPlus, CheckSquare, Users, PlusCircle, ClipboardLis
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
-    async function checkAdminStatus() {
+    async function checkUserStatus() {
       if (!user) return;
 
       const supabase = createClientComponentClient();
       try {
         const { data: profile, error } = await supabase
           .from('intern_profiles')
-          .select('is_admin')
+          .select('is_admin, is_active')
           .eq('user_id', user.id)
           .single();
 
         if (error) {
-          console.error('Error checking admin status:', error);
+          console.error('Error checking user status:', error);
           return;
         }
 
         setIsAdmin(profile?.is_admin || false);
+        setIsActive(profile?.is_active ?? true);
+
+        // If user is inactive and not on the suspended page, redirect them
+        if (!profile?.is_active && pathname !== '/dashboard/suspended') {
+          router.push('/dashboard/suspended');
+        }
       } catch (error) {
         console.error('Error:', error);
       }
     }
 
-    checkAdminStatus();
-  }, [user]);
+    checkUserStatus();
+  }, [user, pathname]);
 
-  // Base navigation items (visible to all users)
+  // Base navigation items (visible to active users)
   const baseNavigation = [
     {
       name: "Dashboard",
@@ -89,7 +97,31 @@ export function Sidebar() {
     },
   ];
 
-  // Combine navigation items based on user role
+  // If user is inactive, only show dashboard that redirects to suspended page
+  if (!isActive) {
+    return (
+      <div className="pb-12 h-full">
+        <div className="space-y-4 py-4">
+          <div className="px-3 py-2">
+            <div className="space-y-1">
+              <Link
+                href="/dashboard/suspended"
+                className={cn(
+                  'flex items-center rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-100 gap-3',
+                  pathname === '/dashboard/suspended' ? 'bg-slate-100' : 'transparent'
+                )}
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Combine navigation items based on user role for active users
   const navigation = [...baseNavigation, ...(isAdmin ? adminNavigation : [])];
 
   return (

@@ -19,38 +19,32 @@ const alwaysAccessibleRoutes = [
   '/images/',
 ];
 
-export async function middleware(request: NextRequest) {
-  // Create a Supabase client for the middleware
+export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req: request, res });
+  const supabase = createMiddlewareClient({ req, res });
 
-  // Check if the route is always accessible
-  const isAlwaysAccessible = alwaysAccessibleRoutes.some(route => 
-    request.nextUrl.pathname.startsWith(route)
-  );
-  
-  if (isAlwaysAccessible) {
-    return res;
+  // Check auth status
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  // If user is not logged in and trying to access protected routes
+  if (!session && req.nextUrl.pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/login', req.url));
   }
 
-  // Check if the route is public
-  const isPublicRoute = publicRoutes.some(route => 
-    request.nextUrl.pathname === route || 
-    request.nextUrl.pathname.startsWith(`${route}/`)
-  );
-  
-  if (isPublicRoute) {
-    return res;
-  }
+  // If user is logged in, check if they're active
+  if (session && req.nextUrl.pathname.startsWith('/dashboard')) {
+    const { data: profile } = await supabase
+      .from('intern_profiles')
+      .select('is_active')
+      .eq('user_id', session.user.id)
+      .single();
 
-  // Get the user's session
-  const { data: { session } } = await supabase.auth.getSession();
-
-  // If there's no session and the route is protected, redirect to login
-  if (!session) {
-    const redirectUrl = new URL('/auth/login', request.url);
-    redirectUrl.searchParams.set('redirect', request.nextUrl.pathname);
-    return NextResponse.redirect(redirectUrl);
+    // If user is inactive and not trying to access the suspended page, redirect them
+    if (profile && !profile.is_active && req.nextUrl.pathname !== '/dashboard/suspended') {
+      return NextResponse.redirect(new URL('/dashboard/suspended', req.url));
+    }
   }
 
   return res;
@@ -58,13 +52,5 @@ export async function middleware(request: NextRequest) {
 
 // Configure the middleware to run on specific paths
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!_next/static|_next/image).*)',
-  ],
+  matcher: ['/dashboard/:path*'],
 }; 

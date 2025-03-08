@@ -7,6 +7,16 @@ import { Card } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { useToast } from "@/app/components/ui/use-toast";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/app/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -14,6 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/app/components/ui/table";
+import { Textarea } from "@/app/components/ui/textarea";
 
 interface TaskApplication {
   id: string;
@@ -38,6 +49,12 @@ interface TaskApplication {
 export default function TaskApplicationsPage() {
   const [applications, setApplications] = useState<TaskApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedApp, setSelectedApp] = useState<{
+    app: TaskApplication | null;
+    action: 'approve' | 'reject' | null;
+  }>({ app: null, action: null });
+  const [rejectionReason, setRejectionReason] = useState('');
+  
   const { user } = useAuth();
   const { toast } = useToast();
   const supabase = createClientComponentClient();
@@ -62,18 +79,23 @@ export default function TaskApplicationsPage() {
         throw new Error('Unauthorized: Admin access required');
       }
 
-      // Get all pending applications with task and applicant details
+      // Get all applications with task and applicant details using a simpler query
       const { data, error } = await supabase
         .from('task_applications')
         .select(`
-          *,
-          task:tasks (
+          id,
+          task_id,
+          applicant_id,
+          status,
+          created_at,
+          notes,
+          tasks (
             title,
             points,
             payment_amount,
             is_paid
           ),
-          applicant:intern_profiles (
+          intern_profiles (
             first_name,
             last_name,
             email
@@ -82,7 +104,34 @@ export default function TaskApplicationsPage() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setApplications(data || []);
+
+      // Transform the data to match our interface
+      const transformedData = (data || []).map(app => {
+        const taskData = Array.isArray(app.tasks) ? app.tasks[0] : app.tasks;
+        const profileData = Array.isArray(app.intern_profiles) ? app.intern_profiles[0] : app.intern_profiles;
+        
+        return {
+          id: app.id,
+          task_id: app.task_id,
+          applicant_id: app.applicant_id,
+          status: app.status as TaskApplication['status'],
+          created_at: app.created_at,
+          notes: app.notes,
+          task: {
+            title: taskData?.title || '',
+            points: taskData?.points || 0,
+            payment_amount: taskData?.payment_amount || 0,
+            is_paid: taskData?.is_paid || false
+          },
+          applicant: {
+            first_name: profileData?.first_name || '',
+            last_name: profileData?.last_name || '',
+            email: profileData?.email || ''
+          }
+        };
+      });
+
+      setApplications(transformedData);
     } catch (error) {
       console.error('Error loading applications:', error);
       toast({
@@ -175,14 +224,15 @@ export default function TaskApplicationsPage() {
                   {app.status === 'pending' && (
                     <div className="flex gap-2">
                       <Button
-                        onClick={() => handleApplicationUpdate(app.id, 'approved')}
-                        className="bg-green-600 hover:bg-green-700"
+                        onClick={() => setSelectedApp({ app, action: 'approve' })}
+                        className="bg-green-600 hover:bg-green-700 cursor-pointer"
                       >
                         Approve
                       </Button>
                       <Button
-                        onClick={() => handleApplicationUpdate(app.id, 'rejected', 'Application rejected by admin')}
+                        onClick={() => setSelectedApp({ app, action: 'reject' })}
                         variant="destructive"
+                        className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
                       >
                         Reject
                       </Button>
@@ -201,6 +251,94 @@ export default function TaskApplicationsPage() {
           </TableBody>
         </Table>
       </Card>
+
+      <AlertDialog open={selectedApp.app !== null}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {selectedApp.action === 'approve' ? 'Approve Application' : 'Reject Application'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <div>
+                <div>
+                  {selectedApp.app && (
+                    <div>
+                      {`Are you sure you want to ${selectedApp.action} the application for "${selectedApp.app.task.title}" from ${selectedApp.app.applicant.first_name} ${selectedApp.app.applicant.last_name}?`}
+                    </div>
+                  )}
+                </div>
+                {selectedApp.action === 'reject' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Rejection Reason (will be sent to the applicant):
+                    </label>
+                    <Textarea
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      placeholder="Please provide a reason for rejection..."
+                      className="w-full"
+                    />
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setSelectedApp({ app: null, action: null });
+                setRejectionReason('');
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (selectedApp.app && selectedApp.action) {
+                  if (selectedApp.action === 'reject' && !rejectionReason.trim()) {
+                    toast({
+                      title: "Error",
+                      description: "Please provide a reason for rejection",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+
+                  // First update the application status
+                  await handleApplicationUpdate(
+                    selectedApp.app.id,
+                    selectedApp.action === 'approve' ? 'approved' : 'rejected',
+                    selectedApp.action === 'reject' ? rejectionReason : undefined
+                  );
+
+                  if (selectedApp.action === 'reject') {
+                    // Update the task status back to open
+                    const { error: taskError } = await supabase
+                      .from('tasks')
+                      .update({ status: 'open' })
+                      .eq('id', selectedApp.app.task_id);
+
+                    if (taskError) {
+                      console.error('Error updating task status:', taskError);
+                      toast({
+                        title: "Warning",
+                        description: "Application rejected but there was an error updating task status",
+                        variant: "destructive",
+                      });
+                    }
+                  }
+
+                  setSelectedApp({ app: null, action: null });
+                  setRejectionReason('');
+                }
+              }}
+              className={selectedApp.action === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700 text-white'}
+            >
+              {selectedApp.action === 'approve' ? 'Approve' : 'Reject'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 } 

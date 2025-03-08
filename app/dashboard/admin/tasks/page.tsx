@@ -14,20 +14,30 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import { ArrowUpDown, Edit } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 type SortField = 'title' | 'points' | 'status' | 'created_at';
 type SortOrder = 'asc' | 'desc';
+
+interface TaskWithIntern extends Task {
+  intern_profiles: {
+    email: string;
+    first_name: string;
+    last_name: string;
+    total_points: number;
+  } | null;
+}
 
 export default function AdminTasksPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<TaskWithIntern[]>([]);
   const [interns, setInterns] = useState<any[]>([]);
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<TaskWithIntern | null>(null);
 
   const [taskData, setTaskData] = useState({
     title: '',
@@ -37,39 +47,153 @@ export default function AdminTasksPage() {
     payment_amount: undefined as number | undefined
   });
 
+  const supabase = createClientComponentClient();
+
   useEffect(() => {
-    if (user) {
-      loadTasks();
-      loadInterns();
-    }
+    const initializeData = async () => {
+      if (!user) {
+        console.log('No user found, skipping data load');
+        return;
+      }
+
+      try {
+        console.log('Checking Supabase session...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          toast({
+            title: "Authentication Error",
+            description: "Please try logging in again",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (!session) {
+          console.log('No active session found');
+          toast({
+            title: "Session Expired",
+            description: "Please log in again",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        console.log('Session found, loading data...');
+        await loadTasks();
+        await loadInterns();
+      } catch (e) {
+        console.error('Initialization error:', e);
+        toast({
+          title: "Error",
+          description: "Failed to initialize dashboard",
+          variant: "destructive",
+        });
+      }
+    };
+
+    initializeData();
   }, [user]);
 
   const loadTasks = async () => {
+    console.log('1. Starting task load...');
+    
     try {
-      const data = await getAllTasks();
-      setTasks(data || []);
+      console.log('2. Checking session...');
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('3. Session:', session?.user?.email);
+
+      console.log('4. Making basic query...');
+      const result = await supabase
+        .from('tasks')
+        .select('*');
+      
+      console.log('5. Query result:', {
+        status: result.status,
+        statusText: result.statusText,
+        error: result.error
+      });
+
+      if (result.error) {
+        console.log('6. Query error:', result.error);
+        throw result.error;
+      }
+
+      if (!result.data) {
+        console.log('7. No data found');
+        setTasks([]);
+        return;
+      }
+
+      console.log('8. Got tasks:', result.data.length);
+
+      // Now try the join query
+      console.log('9. Attempting join query...');
+      const joinResult = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          intern_profiles!tasks_assigned_to_fkey (
+            email,
+            first_name,
+            last_name,
+            total_points
+          )
+        `);
+
+      console.log('10. Join query result:', {
+        status: joinResult.status,
+        statusText: joinResult.statusText,
+        error: joinResult.error
+      });
+
+      if (joinResult.error) {
+        console.log('11. Join query error:', joinResult.error);
+        throw joinResult.error;
+      }
+
+      const typedTasks = (joinResult.data || []) as TaskWithIntern[];
+      console.log('12. Setting tasks:', typedTasks.length);
+      setTasks(typedTasks);
+
     } catch (error) {
-      console.error('Error loading tasks:', error);
+      console.log('13. Error caught:', error);
+      console.error('Error details:', {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
+      
       toast({
-        title: "Error",
-        description: "Failed to load tasks",
+        title: "Error loading tasks",
+        description: error instanceof Error ? error.message : "Failed to load tasks",
         variant: "destructive",
       });
     }
   };
 
   const loadInterns = async () => {
-    const supabase = createClientComponentClient();
     try {
+      console.log('Loading interns...');
       const { data, error } = await supabase
         .from('intern_profiles')
         .select('user_id, email, first_name, last_name')
         .eq('is_admin', false);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
+      console.log(`Successfully loaded ${data?.length || 0} interns`);
       setInterns(data || []);
     } catch (error) {
       console.error('Error loading interns:', error);
+      toast({
+        title: "Error loading interns",
+        description: error instanceof Error ? error.message : "Failed to load interns",
+        variant: "destructive",
+      });
     }
   };
 
@@ -140,29 +264,69 @@ export default function AdminTasksPage() {
   };
 
   const handleAssignTask = async (taskId: string, assignedTo: string) => {
-    const supabase = createClientComponentClient();
+    const { error } = await supabase
+      .from('tasks')
+      .update({ 
+        assigned_to: assignedTo,
+        status: 'assigned'
+      })
+      .eq('id', taskId);
+
+    if (error) throw error;
+
+    toast({
+      title: "Success",
+      description: "Task assigned successfully",
+    });
+
+    loadTasks(); // Reload tasks to show updated assignment
+  };
+
+  const approveTask = async (task: TaskWithIntern) => {
+    if (!task.intern_profiles || task.status !== 'completed') {
+      toast({
+        title: "Cannot approve task",
+        description: "Task must be completed before approval",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const { error } = await supabase
+      // First update task status to approved
+      const { error: taskError } = await supabase
         .from('tasks')
         .update({ 
-          assigned_to: assignedTo,
-          status: 'assigned'
+          status: 'approved',
+          updated_at: new Date().toISOString()
         })
-        .eq('id', taskId);
+        .eq('id', task.id);
 
-      if (error) throw error;
+      if (taskError) throw taskError;
+
+      // Then award points to the intern
+      const { error: pointsError } = await supabase
+        .from('intern_points')
+        .insert({
+          intern_id: task.assigned_to,
+          task_id: task.id,
+          points_earned: task.points,
+          created_by: (await supabase.auth.getUser()).data.user?.id
+        });
+
+      if (pointsError) throw pointsError;
 
       toast({
-        title: "Success",
-        description: "Task assigned successfully",
+        title: "Task approved",
+        description: `Awarded ${task.points} points to ${task.intern_profiles.first_name}`,
       });
 
-      loadTasks(); // Reload tasks to show updated assignment
-    } catch (error) {
-      console.error('Error assigning task:', error);
+      loadTasks();
+    } catch (error: any) {
+      console.error('Error approving task:', error);
       toast({
-        title: "Error",
-        description: "Failed to assign task",
+        title: "Error approving task",
+        description: error.message,
         variant: "destructive",
       });
     }
@@ -240,7 +404,20 @@ export default function AdminTasksPage() {
                 <tbody>
                   {sortedTasks.map((task) => (
                     <tr key={task.id} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4">{task.title}</td>
+                      <td className="py-3 px-4">
+                        <Link 
+                          href={`/dashboard/tasks/${task.id}`}
+                          className="text-blue-600 hover:text-blue-800 hover:underline"
+                          onClick={(e) => {
+                            console.log('Clicking task link:', {
+                              id: task.id,
+                              title: task.title
+                            });
+                          }}
+                        >
+                          {task.title}
+                        </Link>
+                      </td>
                       <td className="py-3 px-4 max-w-xs truncate">{task.description}</td>
                       <td className="py-3 px-4">{task.points}</td>
                       <td className="py-3 px-4">
@@ -261,24 +438,22 @@ export default function AdminTasksPage() {
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        {task.assigned_to ? (
+                        {task.intern_profiles && (
                           <div className="text-sm">
                             <p className="font-medium">
-                              {(task as any).assigned_to.first_name} {(task as any).assigned_to.last_name}
+                              {task.intern_profiles.first_name} {task.intern_profiles.last_name}
                             </p>
                             <p className="text-gray-500">
-                              {(task as any).assigned_to.email}
+                              {task.intern_profiles.email}
                             </p>
                           </div>
-                        ) : (
-                          <span className="text-gray-500">Unassigned</span>
                         )}
                       </td>
                       <td className="py-3 px-4">
                         {new Date(task.created_at).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-4">
-                        {!task.assigned_to && task.status === 'open' && (
+                        {!task.intern_profiles && task.status === 'open' && (
                           <div className="flex items-center space-x-2">
                             {editingTask?.id === task.id ? (
                               <div className="flex items-center space-x-2">

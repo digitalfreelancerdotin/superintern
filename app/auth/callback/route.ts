@@ -76,6 +76,32 @@ export async function GET(request: NextRequest) {
           console.log('Intern profile updated successfully');
         }
       }
+
+      // Check if user already has a referral code
+      const { data: existingCode, error: fetchError } = await supabase
+        .from('referral_codes')
+        .select('code')
+        .eq('user_id', data.user.id)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error checking referral code:', fetchError);
+      }
+
+      // If no referral code exists, create one
+      if (!existingCode) {
+        const newCode = generateReferralCode();
+        const { error: insertError } = await supabase
+          .from('referral_codes')
+          .insert({
+            user_id: data.user.id,
+            code: newCode
+          });
+
+        if (insertError) {
+          console.error('Error creating referral code:', insertError);
+        }
+      }
     }
 
     // Redirect to the specified URL or default to the intern dashboard
@@ -87,4 +113,11 @@ export async function GET(request: NextRequest) {
   // If no code is present, redirect to login
   console.log('AuthCallback: No code present, redirecting to login');
   return NextResponse.redirect(new URL('/auth/login', requestUrl.origin));
+}
+
+function generateReferralCode(): string {
+  // Generate a random 8-character code with timestamp to ensure uniqueness
+  const timestamp = Date.now().toString(36).substring(0, 2);
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `${random}${timestamp}`;
 } 

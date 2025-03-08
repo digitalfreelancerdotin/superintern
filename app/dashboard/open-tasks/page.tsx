@@ -30,6 +30,7 @@ interface OpenTask {
 export default function OpenTasksPage() {
   const [tasks, setTasks] = useState<OpenTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userPoints, setUserPoints] = useState<number>(0);
   const { user } = useAuth();
   const { toast } = useToast();
   const supabase = createClientComponentClient();
@@ -37,8 +38,24 @@ export default function OpenTasksPage() {
   useEffect(() => {
     if (user) {
       loadOpenTasks();
+      loadUserPoints();
     }
   }, [user]);
+
+  const loadUserPoints = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('intern_profiles')
+        .select('total_points')
+        .eq('user_id', user!.id)
+        .single();
+
+      if (error) throw error;
+      setUserPoints(data?.total_points || 0);
+    } catch (error) {
+      console.error('Error loading user points:', error);
+    }
+  };
 
   const loadOpenTasks = async () => {
     try {
@@ -83,12 +100,22 @@ export default function OpenTasksPage() {
     }
   };
 
-  const handleApply = async (taskId: string) => {
+  const handleApply = async (task: OpenTask) => {
     try {
+      // Check points requirement for paid tasks
+      if (task.is_paid && userPoints < 100) {
+        toast({
+          title: "Points Required",
+          description: "You need at least 100 points to apply for paid tasks. Current points: " + userPoints,
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from('task_applications')
         .insert({
-          task_id: taskId,
+          task_id: task.id,
           applicant_id: user!.id,
           status: 'pending'
         });
@@ -139,7 +166,18 @@ export default function OpenTasksPage() {
                 <TableCell>{task.description}</TableCell>
                 <TableCell>{task.points}</TableCell>
                 <TableCell>
-                  {task.is_paid ? `$${task.payment_amount}` : 'No payment'}
+                  {task.is_paid ? (
+                    <span className="text-green-600 font-medium">
+                      ${task.payment_amount}
+                      {userPoints < 100 && (
+                        <span className="block text-xs text-red-500 mt-1">
+                          Requires 100 points
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    'No payment'
+                  )}
                 </TableCell>
                 <TableCell>
                   {task.application_status ? (
@@ -152,9 +190,10 @@ export default function OpenTasksPage() {
                 </TableCell>
                 <TableCell>
                   <Button
-                    onClick={() => handleApply(task.id)}
-                    disabled={!!task.application_status}
+                    onClick={() => handleApply(task)}
+                    disabled={!!task.application_status || (task.is_paid && userPoints < 100)}
                     variant={task.application_status ? "secondary" : "default"}
+                    className={task.is_paid && userPoints < 100 ? "bg-gray-100 hover:bg-gray-100" : ""}
                   >
                     {task.application_status ? 'Applied' : 'Apply'}
                   </Button>

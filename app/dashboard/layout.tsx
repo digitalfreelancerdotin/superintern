@@ -1,6 +1,12 @@
 import Navbar from "../components/Navbar";
 import { Sidebar } from "../components/Sidebar";
 import SupabaseDebugLinks from '../components/supabase-debug-links';
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Dashboard | SuperIntern',
+  description: 'Manage your internship journey',
+};
 
 export default function DashboardLayout({
   children,

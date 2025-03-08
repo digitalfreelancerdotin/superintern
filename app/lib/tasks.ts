@@ -1,6 +1,14 @@
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
-export type TaskStatus = 'open' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+export type TaskStatus = 'open' | 'assigned' | 'in_progress' | 'completed' | 'approved' | 'blocked' | 'cancelled';
+
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  content: string;
+  created_at: string;
+  created_by: string;
+}
 
 export interface Task {
   id: string;
@@ -15,6 +23,7 @@ export interface Task {
   created_by: string;
   assigned_to?: string;
   completed_at?: string;
+  comments?: TaskComment[];
 }
 
 export interface CreateTaskData {
