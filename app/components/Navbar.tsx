@@ -73,7 +73,7 @@ export default function Navbar() {
             <Link href="/">
               <div className="flex items-center gap-2">
                 <span className="text-blue-500 text-2xl">⬇️</span>
-                <span className="text-xl font-bold">TopInterns</span>
+                <span className="text-xl font-bold">SuperInterns</span>
               </div>
             </Link>
           </div>
