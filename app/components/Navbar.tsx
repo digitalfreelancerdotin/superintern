@@ -6,15 +6,19 @@ import { AuthButton } from "@/app/components/auth/auth-button"
 import { useAuth } from '../context/auth-context';
 import { useState, useEffect } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Award } from "lucide-react";
 
 export default function Navbar() {
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
   const [points, setPoints] = useState<number | null>(null);
   const supabase = createClientComponentClient();
+
+  // Check if we're in the dashboard section
+  const isDashboard = pathname?.startsWith('/dashboard');
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -84,39 +88,44 @@ export default function Navbar() {
               </div>
             </Link>
           </div>
-          <div className="hidden md:flex items-center space-x-8">
-            <button 
-              onClick={() => scrollToSection('hero')}
-              className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
-            >
-              Home
-            </button>
-            <button 
-              onClick={() => scrollToSection('features')}
-              className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
-            >
-              How does it work
-            </button>
-            <button 
-              onClick={() => scrollToSection('leaderboard')}
-              className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
-            >
-              Leaderboard
-            </button>
-            <button 
-              onClick={() => scrollToSection('tasks')}
-              className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
-            >
-              Internships
-            </button>
-            <button 
-              onClick={() => scrollToSection('stats')}
-              className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
-            >
-              Hire a Super Intern
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
+          
+          {/* Only show navigation items if not in dashboard */}
+          {!isDashboard && (
+            <div className="hidden md:flex items-center space-x-8">
+              <button 
+                onClick={() => scrollToSection('hero')}
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+              >
+                Home
+              </button>
+              <button 
+                onClick={() => scrollToSection('features')}
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+              >
+                How does it work
+              </button>
+              <button 
+                onClick={() => scrollToSection('leaderboard')}
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+              >
+                Leaderboard
+              </button>
+              <button 
+                onClick={() => scrollToSection('tasks')}
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+              >
+                Internships
+              </button>
+              <button 
+                onClick={() => scrollToSection('stats')}
+                className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+              >
+                Hire a Super Intern
+              </button>
+            </div>
+          )}
+          
+          <div className="flex items-center gap-4">
             {user && points !== null && (
               <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full text-sm font-medium">
                 <Award className="h-4 w-4 text-yellow-600" />
