@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../context/auth-context';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { LayoutDashboard, ListPlus, CheckSquare, Users, PlusCircle, ClipboardList, UserCog } from 'lucide-react';
+import { LayoutDashboard, ListPlus, CheckSquare, Users, PlusCircle, ClipboardList, UserCog, FileText } from 'lucide-react';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -94,6 +94,12 @@ export function Sidebar() {
       href: "/dashboard/interns",
       icon: UserCog,
       current: pathname === "/dashboard/interns",
+    },
+    {
+      name: "Internship Requests",
+      href: "/dashboard/internship-requests",
+      icon: FileText,
+      current: pathname === "/dashboard/internship-requests",
     },
   ];
 
