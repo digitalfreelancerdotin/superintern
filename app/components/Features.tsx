@@ -72,13 +72,23 @@ export function Features() {
 
         {/* First Row - Left Content */}
         <div className="flex items-center justify-between gap-16">
-          <div className="max-w-sm group transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg rounded-xl p-6 hover:bg-gray-50">
-            <h3 className="text-2xl font-bold mb-4 group-hover:text-indigo-600 transition-colors duration-300">
-              Pick Free Tasks
-            </h3>
-            <p className="text-slate-600 mb-4 group-hover:text-gray-700 transition-colors duration-300">
-              Start your journey by completing free tasks and earning points. Build your portfolio while learning new skills.
-            </p>
+          <div className="max-w-sm group cursor-pointer">
+            <div className="transition-all duration-300 ease-in-out -translate-y-1 shadow-lg rounded-xl p-6 bg-gray-50">
+              <h3 className="text-2xl font-bold mb-4 text-indigo-600">
+                Pick Free Tasks
+              </h3>
+              <p className="text-gray-700 mb-4">
+                Start your journey by completing free tasks and earning points. Build your portfolio while learning new skills.
+              </p>
+            </div>
+            <div className="mt-6 overflow-hidden rounded-lg">
+              <img 
+                src="/postits.png" 
+                alt="Task post-it notes"
+                className="w-full transform transition-all duration-500 ease-in-out group-hover:scale-110 group-hover:shadow-xl rounded-lg"
+                style={{ maxWidth: '400px' }}
+              />
+            </div>
           </div>
           <div className="max-w-sm" /> {/* Empty div for spacing */}
         </div>
@@ -86,25 +96,45 @@ export function Features() {
         {/* Second Row - Right Content */}
         <div className="flex items-center justify-between gap-16">
           <div className="max-w-sm" /> {/* Empty div for spacing */}
-          <div className="max-w-sm text-right group transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg rounded-xl p-6 hover:bg-gray-50">
-            <h3 className="text-2xl font-bold mb-4 group-hover:text-indigo-600 transition-colors duration-300">
-              Unlock Paid Tasks
-            </h3>
-            <p className="text-slate-600 group-hover:text-gray-700 transition-colors duration-300">
-              Once you reach the required points threshold, gain access to paid tasks and start earning rewards.
-            </p>
+          <div className="max-w-sm text-right group cursor-pointer">
+            <div className="transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg rounded-xl p-6 hover:bg-gray-50">
+              <h3 className="text-2xl font-bold mb-4 group-hover:text-indigo-600 transition-colors duration-300">
+                Unlock Paid Tasks
+              </h3>
+              <p className="text-slate-600 group-hover:text-gray-700 transition-colors duration-300">
+                Once you reach the required points threshold, gain access to paid tasks and start earning rewards.
+              </p>
+            </div>
+            <div className="mt-6 overflow-hidden rounded-lg">
+              <img 
+                src="/paid-freelancing-gigs.png" 
+                alt="Paid freelancing opportunities illustration"
+                className="w-full transform transition-all duration-500 ease-in-out group-hover:scale-110 group-hover:shadow-xl rounded-lg"
+                style={{ maxWidth: '400px', marginLeft: 'auto' }}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Third Row - Left Content */}
+        {/* Third Row - Left Content with Image */}
         <div className="flex items-center justify-between gap-16">
-          <div className="max-w-sm group transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg rounded-xl p-6 hover:bg-gray-50">
-            <h3 className="text-2xl font-bold mb-4 group-hover:text-indigo-600 transition-colors duration-300">
-              Refer Friends
-            </h3>
-            <p className="text-slate-600 group-hover:text-gray-700 transition-colors duration-300">
-              Invite your friends to join TopInterns. Earn bonus points when they complete their first task.
-            </p>
+          <div className="max-w-sm group cursor-pointer">
+            <div className="transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg rounded-xl p-6 hover:bg-gray-50">
+              <h3 className="text-2xl font-bold mb-4 group-hover:text-indigo-600 transition-colors duration-300">
+                Refer Friends
+              </h3>
+              <p className="text-slate-600 group-hover:text-gray-700 transition-colors duration-300">
+                Invite your friends to join TopInterns. Earn bonus points when they complete their first task.
+              </p>
+            </div>
+            <div className="mt-6 overflow-hidden rounded-lg">
+              <img 
+                src="/superheroes.png" 
+                alt="Superhero developers with laptops"
+                className="w-full transform transition-all duration-500 ease-in-out group-hover:scale-110 group-hover:shadow-xl rounded-lg"
+                style={{ maxWidth: '400px' }}
+              />
+            </div>
           </div>
           <div className="max-w-sm" /> {/* Empty div for spacing */}
         </div>

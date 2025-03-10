@@ -16,6 +16,13 @@ export default function Navbar() {
   const [points, setPoints] = useState<number | null>(null);
   const supabase = createClientComponentClient();
 
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   useEffect(() => {
     async function checkAdminStatus() {
       if (user) {
@@ -77,19 +84,31 @@ export default function Navbar() {
               </div>
             </Link>
           </div>
-          <div className="flex items-center gap-2">
-            {user && (
-              <>
-                <Link href="/dashboard/intern/profile" className="text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium">
-                  Profile
-                </Link>
-                {isAdmin && (
-                  <Link href="/dashboard/admin/tasks" className="text-gray-900 inline-flex items-center px-1 pt-1 text-sm font-medium">
-                    Tasks
-                  </Link>
-                )}
-              </>
-            )}
+          <div className="hidden md:flex items-center space-x-8">
+            <button 
+              onClick={() => scrollToSection('hero')}
+              className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+            >
+              Home
+            </button>
+            <button 
+              onClick={() => scrollToSection('features')}
+              className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+            >
+              How does it work
+            </button>
+            <button 
+              onClick={() => scrollToSection('leaderboard')}
+              className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+            >
+              Leaderboard
+            </button>
+            <button 
+              onClick={() => scrollToSection('tasks')}
+              className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+            >
+              Internships
+            </button>
           </div>
           <div className="flex items-center gap-2">
             {user && points !== null && (

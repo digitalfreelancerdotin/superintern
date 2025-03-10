@@ -15,32 +15,10 @@ export default function StatsSection() {
           Top companies trust us
         </h2>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-16">
-          {stats.map((stat, index) => (
-            <Card key={index} className="text-center">
-              <CardContent className="pt-6">
-                <div className="text-3xl font-bold text-primary mb-2">
-                  {stat.value}
-                </div>
-                <p className="text-muted-foreground">{stat.label}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
         <div className="mt-16">
-          <h3 className="text-2xl font-semibold text-center mb-8">
+          <h3 className="text-2xl font-semibold text-center">
             Join the pool of 21M+ students and get started with your career
           </h3>
-          <div className="flex justify-center items-center gap-4">
-            <div className="flex items-center">
-              <span className="text-4xl font-bold">4.2</span>
-              <div className="ml-2">
-                <div className="text-yellow-400">★★★★☆</div>
-                <div className="text-sm text-muted-foreground">User Rating</div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </section>
