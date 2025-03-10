@@ -109,6 +109,12 @@ export default function Navbar() {
             >
               Internships
             </button>
+            <button 
+              onClick={() => scrollToSection('stats')}
+              className="text-gray-600 hover:text-gray-900 transition-colors text-sm font-medium"
+            >
+              Hire a Super Intern
+            </button>
           </div>
           <div className="flex items-center gap-2">
             {user && points !== null && (
