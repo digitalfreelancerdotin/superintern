@@ -193,7 +193,7 @@ export default function ReferralsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold tracking-tight">Referrals Dashboard</h1>
-      <ReferralShare />
+      <ReferralShare key="referrals-page" />
     </div>
   );
 } 

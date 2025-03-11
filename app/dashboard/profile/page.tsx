@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { Card } from '@/app/components/ui/card';
-import { ReferralShare } from '@/app/components/ReferralShare';
 import { ReferralStats } from '@/app/components/ReferralStats';
 import { useAuth } from '@/app/context/auth-context';
 
@@ -92,7 +91,8 @@ export default function ProfilePage() {
         <p className="text-gray-600 mb-6">
           Share your referral link with friends and earn 100 points when they join and complete their first task!
         </p>
-        <ReferralShare />
+        {/* Comment out or remove if not needed here */}
+        {/* <ReferralShare /> */}
       </Card>
 
       <Card className="p-6">

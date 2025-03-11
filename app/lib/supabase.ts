@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -17,20 +17,9 @@ if (!supabaseAnonKey) {
 console.log('Initializing Supabase client with URL:', supabaseUrl);
 
 // Create the main client for general operations
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
-  },
-  db: {
-    schema: 'public'
-  },
-  global: {
-    headers: {
-      'x-application-name': 'superintern'
-    }
-  }
+export const supabase = createClientComponentClient({
+  supabaseUrl: supabaseUrl,
+  supabaseKey: supabaseAnonKey,
 });
 
 // Storage bucket for resumes
@@ -309,4 +298,11 @@ export const getSupabaseClient = async () => {
     console.error('Error in getSupabaseClient:', error);
     throw error;
   }
+};
+
+export const createClient = () => {
+  return createClientComponentClient({
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  });
 }; 
