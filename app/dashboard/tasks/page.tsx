@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/app/context/auth-context";
-import { Card } from "@/app/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { useToast } from "@/app/components/ui/use-toast";
 import { Task } from "@/app/lib/tasks";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import Link from "next/link";
+import { Alert, AlertDescription } from "@/app/components/ui/alert";
+import { Skeleton } from "@/app/components/ui/skeleton";
 
 interface TaskWithDetails extends Task {
   intern_profiles: {
@@ -21,6 +23,7 @@ export default function MyTasksPage() {
   const { toast } = useToast();
   const [tasks, setTasks] = useState<TaskWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const supabase = createClientComponentClient();
 
   useEffect(() => {
@@ -31,6 +34,7 @@ export default function MyTasksPage() {
 
   const loadTasks = async () => {
     try {
+      setIsLoading(true);
       const { data, error } = await supabase
         .from('tasks')
         .select(`
@@ -49,11 +53,7 @@ export default function MyTasksPage() {
       setTasks(data || []);
     } catch (error) {
       console.error('Error loading tasks:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load your tasks",
-        variant: "destructive",
-      });
+      setError('Failed to load your tasks. Please try again later.');
     } finally {
       setIsLoading(false);
     }
@@ -71,7 +71,41 @@ export default function MyTasksPage() {
   }
 
   if (isLoading) {
-    return <div className="p-8">Loading your tasks...</div>;
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (!tasks || tasks.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>My Tasks</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <p className="text-muted-foreground">
+              No tasks assigned to you yet.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Browse available tasks and submit applications to get started.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   const getStatusColor = (status: string) => {
@@ -125,12 +159,6 @@ export default function MyTasksPage() {
             </Card>
           </Link>
         ))}
-
-        {tasks.length === 0 && (
-          <Card className="p-6">
-            <p className="text-gray-500 text-center">No tasks assigned to you yet.</p>
-          </Card>
-        )}
       </div>
     </div>
   );

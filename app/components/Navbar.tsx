@@ -10,8 +10,9 @@ import { useRouter, usePathname } from "next/navigation";
 import { Award, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { ThemeToggle } from "@/app/components/ui/theme-toggle"
+import { cn } from "@/lib/utils"
 
-export default function Navbar() {
+export function Navbar({ className }: { className?: string }) {
   const { user, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -80,7 +81,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 border-b bg-background text-foreground z-50">
+    <header className={cn("border-b bg-background h-16", className)}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-2">
@@ -148,6 +149,6 @@ export default function Navbar() {
           </div>
         </div>
       </div>
-    </nav>
+    </header>
   )
 } 

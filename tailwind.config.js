@@ -50,6 +50,11 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        twitter: '#1DA1F2',
+        facebook: '#1877F2',
+        linkedin: '#0077B5',
+        whatsapp: '#25D366',
+        telegram: '#0088cc',
       },
       borderRadius: {
         lg: "var(--radius)",

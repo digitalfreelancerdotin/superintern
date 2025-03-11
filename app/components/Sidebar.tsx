@@ -6,9 +6,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../context/auth-context';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { LayoutDashboard, ListPlus, CheckSquare, Users, PlusCircle, ClipboardList, UserCog, FileText } from 'lucide-react';
+import { LayoutDashboard, ListPlus, CheckSquare, Users, PlusCircle, ClipboardList, UserCog, FileText, LayoutGrid, ListTodo } from 'lucide-react';
 
-export function Sidebar() {
+export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
@@ -131,24 +131,27 @@ export function Sidebar() {
   const navigation = [...baseNavigation, ...(isAdmin ? adminNavigation : [])];
 
   return (
-    <div className="h-full bg-background">
+    <div className={cn("border-r bg-background overflow-y-auto", className)}>
       <div className="space-y-4 py-4">
         <div className="px-3 py-2">
-          <div className="space-y-1">
+          <h2 className="mb-2 px-4 text-xl font-semibold tracking-tight">
+            Dashboard
+          </h2>
+          <nav className="space-y-1">
             {navigation.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  'flex items-center rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-100 gap-3',
-                  pathname === link.href ? 'bg-slate-100' : 'transparent'
+                  "flex items-center px-4 py-2 text-sm font-medium rounded-lg hover:bg-accent hover:text-accent-foreground",
+                  pathname === link.href ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                {link.icon && <link.icon className="h-4 w-4" />}
+                {link.icon && <link.icon className="mr-2 h-4 w-4" />}
                 {link.name}
               </Link>
             ))}
-          </div>
+          </nav>
         </div>
       </div>
     </div>

@@ -166,7 +166,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-4">
+      <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
       <Card className="p-6">
         <h1 className="text-2xl font-bold mb-4">
           {isAdmin ? (
