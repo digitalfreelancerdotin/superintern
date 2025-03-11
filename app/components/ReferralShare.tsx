@@ -230,94 +230,112 @@ export function ReferralShare() {
         ))}
           </div>
 
-      <div className="space-y-6">
-        <h3 className="text-lg font-semibold">Share Your Link</h3>
+      <div className="w-full">
+        <h2 className="text-xl font-semibold mb-4 text-center">Share Your Link</h2>
         
-        {/* Link and QR code section */}
-        <div className="flex flex-col md:flex-row gap-6">
-          {/* Referral link section */}
-          <div className="flex-1">
-            <div className="flex items-center p-3 bg-muted rounded-lg">
-              <div className="text-sm text-muted-foreground mr-2 truncate">
-                {referralLink || 'Generating link...'}
-              </div>
-              <button
-                className="shrink-0 p-2 hover:bg-background rounded"
-              onClick={copyToClipboard}
-                disabled={!referralLink}
-                title="Copy link"
-            >
-              <Copy className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* QR code and buttons section */}
-          <div className="flex flex-col gap-3">
-            {/* QR code in white container */}
-            {qrCodeUrl && (
-              <div className="bg-white p-4 rounded-lg border shadow-sm w-fit">
-                <img 
-                  src={qrCodeUrl}
-                  alt="Referral QR Code"
-                  className="w-40 h-40"
-                />
-              </div>
-            )}
+        {/* Two column layout */}
+        <div className="flex flex-col md:flex-row items-start justify-center gap-8">
+          {/* Left column - Referral Link and Social Sharing */}
+          <div className="flex-1 w-full max-w-md">
+            <h3 className="text-lg font-medium mb-3 text-center">Referral Link</h3>
             
-            {/* Buttons below, outside the white container */}
-            <div className="flex gap-2">
+            {/* Referral Link Input */}
+            <div className="flex items-center gap-2 mb-4">
+              <input
+                type="text"
+                value={referralLink}
+                readOnly
+                className="flex-1 px-3 py-2 bg-background border rounded-md truncate"
+              />
               <button
-                onClick={copyQRCode}
+                onClick={copyToClipboard}
                 className="flex items-center gap-2 px-3 py-2 text-gray-700 dark:text-white rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
-                title="Copy QR code"
+                title="Copy link"
               >
                 <Copy className="h-4 w-4" />
-                <span className="text-sm">Copy QR</span>
               </button>
+            </div>
+
+            {/* Social Share Buttons */}
+            <div className="flex gap-3 justify-center">
               <button
-                onClick={() => {
-                  const link = document.createElement('a');
-                  link.href = qrCodeUrl;
-                  link.download = 'referral-qr-code.png';
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                }}
-                className="flex items-center gap-2 px-3 py-2 text-gray-700 dark:text-white rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
-                title="Download QR code"
+                onClick={() => shareOnPlatform('twitter')}
+                className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
+                title="Share on Twitter"
               >
-                <Download className="h-4 w-4" />
-                <span className="text-sm">Save QR</span>
+                <Twitter className="h-5 w-5" />
+              </button>
+              
+              <button
+                onClick={() => shareOnPlatform('facebook')}
+                className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
+                title="Share on Facebook"
+              >
+                <Facebook className="h-5 w-5" />
+              </button>
+              
+              <button
+                onClick={() => shareOnPlatform('whatsapp')}
+                className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
+                title="Share on WhatsApp"
+              >
+                <MessageCircle className="h-5 w-5" />
+              </button>
+              
+              <button
+                onClick={() => shareOnPlatform('telegram')}
+                className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
+                title="Share on Telegram"
+              >
+                <Send className="h-5 w-5" />
               </button>
             </div>
           </div>
-        </div>
 
-        {/* Social share buttons */}
-        <div className="flex flex-wrap gap-4">
-          {[
-            { name: 'Twitter', icon: Twitter, onClick: () => shareOnPlatform('twitter'), bgColor: 'bg-[#E8F5FD]', iconColor: 'text-[#1DA1F2]' },
-            { name: 'Facebook', icon: Facebook, onClick: () => shareOnPlatform('facebook'), bgColor: 'bg-[#E7F3FF]', iconColor: 'text-[#1877F2]' },
-            { name: 'WhatsApp', icon: MessageCircle, onClick: () => shareOnPlatform('whatsapp'), bgColor: 'bg-[#E7FFE7]', iconColor: 'text-[#25D366]' },
-            { name: 'Telegram', icon: Send, onClick: () => shareOnPlatform('telegram'), bgColor: 'bg-[#E7F3FF]', iconColor: 'text-[#0088cc]' }
-          ].map((platform) => (
-            <button
-              key={platform.name}
-              onClick={platform.onClick}
-              className="flex flex-col items-center group"
-              disabled={!referralLink}
-            >
-              <div className={`p-3 rounded-full transition-transform group-hover:scale-110 ${platform.bgColor}`}>
-                <platform.icon className={`h-5 w-5 ${platform.iconColor}`} />
+          {/* Right column - QR Code */}
+          <div className="flex-1 w-full max-w-md">
+            <h3 className="text-lg font-medium mb-3 text-center">Referral QR Code</h3>
+            <div className="flex flex-col items-center">
+              {qrCodeUrl && (
+                <div className="bg-white p-4 rounded-lg border shadow-sm w-fit">
+                  <img 
+                    src={qrCodeUrl}
+                    alt="Referral QR Code"
+                    className="w-40 h-40"
+                  />
+                </div>
+              )}
+              
+              {/* QR code buttons */}
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={copyQRCode}
+                  className="flex items-center gap-2 px-3 py-2 text-gray-700 dark:text-white rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+                  title="Copy QR code"
+                >
+                  <Copy className="h-4 w-4" />
+                  <span className="text-sm">Copy QR</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = qrCodeUrl;
+                    link.download = 'referral-qr-code.png';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 text-gray-700 dark:text-white rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+                  title="Download QR code"
+                >
+                  <Download className="h-4 w-4" />
+                  <span className="text-sm">Save QR</span>
+                </button>
               </div>
-              <span className="text-xs text-muted-foreground mt-1">
-                {platform.name}
-              </span>
-            </button>
-          ))}
-        </div>
+            </div>
           </div>
+        </div>
+      </div>
     </div>
   );
 } 

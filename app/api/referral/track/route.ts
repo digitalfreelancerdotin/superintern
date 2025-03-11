@@ -77,4 +77,18 @@ export async function POST(request: Request) {
       details: error.message 
     }, { status: 500 });
   }
-} 
+}
+
+const shareOnPlatform = (platform: 'twitter' | 'facebook' | 'whatsapp' | 'telegram') => {
+  const text = 'Join me on SuperIntern!';
+  const url = referralLink;
+  
+  const shareUrls = {
+    twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+    whatsapp: `https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`,
+    telegram: `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`
+  };
+
+  window.open(shareUrls[platform], '_blank', 'noopener,noreferrer');
+}; 
