@@ -106,7 +106,7 @@ export function Sidebar() {
   // If user is inactive, only show dashboard that redirects to suspended page
   if (!isActive) {
     return (
-      <div className="pb-12 h-full">
+      <div className="h-full bg-background">
         <div className="space-y-4 py-4">
           <div className="px-3 py-2">
             <div className="space-y-1">
@@ -131,7 +131,7 @@ export function Sidebar() {
   const navigation = [...baseNavigation, ...(isAdmin ? adminNavigation : [])];
 
   return (
-    <div className="pb-12 h-full">
+    <div className="h-full bg-background">
       <div className="space-y-4 py-4">
         <div className="px-3 py-2">
           <div className="space-y-1">

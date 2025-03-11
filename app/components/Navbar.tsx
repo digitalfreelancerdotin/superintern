@@ -7,7 +7,9 @@ import { useAuth } from '../context/auth-context';
 import { useState, useEffect } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter, usePathname } from "next/navigation";
-import { Award } from "lucide-react";
+import { Award, Sun, Moon } from "lucide-react";
+import { useTheme } from "next-themes";
+import { ThemeToggle } from "@/app/components/ui/theme-toggle"
 
 export default function Navbar() {
   const { user, signOut } = useAuth();
@@ -16,6 +18,7 @@ export default function Navbar() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [points, setPoints] = useState<number | null>(null);
   const supabase = createClientComponentClient();
+  const { theme, setTheme } = useTheme();
 
   // Check if we're in the dashboard section
   const isDashboard = pathname?.startsWith('/dashboard');
@@ -77,7 +80,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 border-b bg-white z-50">
+    <nav className="fixed top-0 left-0 right-0 border-b bg-background text-foreground z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center gap-2">
@@ -126,8 +129,9 @@ export default function Navbar() {
           )}
           
           <div className="flex items-center gap-4">
+            {isDashboard && <ThemeToggle />}
             {user && points !== null && (
-              <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full text-sm font-medium">
+              <div className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-full text-sm font-medium">
                 <Award className="h-4 w-4 text-yellow-600" />
                 <span>{points} points</span>
               </div>
