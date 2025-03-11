@@ -18,14 +18,35 @@ export default function SignUpPage() {
   const searchParams = useSearchParams();
   const supabase = createClientComponentClient();
   const { toast } = useToast();
+  const [hasTrackedVisit, setHasTrackedVisit] = useState(false);
 
   useEffect(() => {
     // Get referral code from URL if present
     const ref = searchParams.get('ref');
-    if (ref) {
+    if (ref && !hasTrackedVisit) {
       setReferralCode(ref);
+      trackReferralVisit(ref);
+      setHasTrackedVisit(true);
     }
-  }, [searchParams]);
+  }, [searchParams, hasTrackedVisit]);
+
+  const trackReferralVisit = async (referralCode: string) => {
+    try {
+      const response = await fetch('/api/referral/track', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ referralCode }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to track referral visit');
+      }
+    } catch (error) {
+      console.error('Error tracking referral:', error);
+    }
+  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,6 +151,9 @@ export default function SignUpPage() {
       });
 
       router.push('/verify');
+
+      // Mark referral as converted
+      await markReferralConverted(referralCode);
     } catch (error) {
       console.error('Signup error:', error);
       toast({
@@ -140,6 +164,50 @@ export default function SignUpPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const markReferralConverted = async (referralCode: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('referral_visits')
+        .update({ converted: true })
+        .eq('referral_code', referralCode)
+        .is('converted', false)
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error marking referral as converted:', error);
+    }
+  };
+
+  const createUserProfile = async (userId: string, referralCode: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .insert([
+          {
+            user_id: userId,
+            referral_code: referralCode,
+          }
+        ]);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error creating user profile:', error);
+    }
+  };
+
+  // Helper function to generate a unique referral code
+  const generateReferralCode = () => {
+    // Generate a random string of 8 characters
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
   };
 
   return (
