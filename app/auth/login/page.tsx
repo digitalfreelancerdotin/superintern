@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { redirect?: string };
+  searchParams: { [key: string]: string | string[] | undefined }
 }) {
   const cookieStore = cookies();
   const supabase = createServerComponentClient({ cookies: () => cookieStore });
@@ -18,8 +18,12 @@ export default async function LoginPage({
   } = await supabase.auth.getSession();
 
   if (session) {
-    redirect(searchParams.redirect || '/dashboard/intern');
+    const redirectUrl = typeof searchParams.redirect === 'string' 
+      ? searchParams.redirect 
+      : '/dashboard/intern';
+    
+    redirect(redirectUrl);
   }
 
   return <Auth />;
-} 
+}
