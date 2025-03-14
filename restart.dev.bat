@@ -7,4 +7,4 @@ rmdir /s /q node_modules
 del package-lock.json
 
 echo Installing dependencies...
-npm install --legacy-peer-dev
+npm install --legacy-peer-deps
