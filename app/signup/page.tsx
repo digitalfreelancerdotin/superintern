@@ -84,7 +84,7 @@ export default function SignUpPage() {
           .select(`
             user_id, 
             code,
-            intern_profiles!referral_codes_user_id_fkey (
+            intern_profiles!inner(
               is_admin
             )
           `)
@@ -100,7 +100,11 @@ export default function SignUpPage() {
           });
         } else if (referralData) {
           // Check if referrer is not an admin (is an intern)
-          if (referralData.intern_profiles?.is_admin) {
+          const referrerProfile = Array.isArray(referralData.intern_profiles) 
+            ? referralData.intern_profiles[0] 
+            : referralData.intern_profiles;
+
+          if (referrerProfile?.is_admin) {
             console.log('Referrer is an admin, not creating referral record');
             toast({
               title: "Warning",

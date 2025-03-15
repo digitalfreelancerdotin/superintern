@@ -9,14 +9,24 @@ import { useAuth } from '../context/auth-context'
 import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert"
 import { Card, CardContent } from "./ui/card"
+import { Table, TableBody, TableCell, TableRow } from "./ui/table"
+
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  points: number;
+  payment_amount: number | null;
+  status: string;
+}
 
 interface TaskListProps {
-  initialTasks?: any[]
+  initialTasks?: Task[];
 }
 
 export function TaskList({ initialTasks = [] }: TaskListProps) {
-  const [tasks, setTasks] = useState(initialTasks)
-  const [selectedTask, setSelectedTask] = useState(null)
+  const [tasks, setTasks] = useState<Task[]>(initialTasks)
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -51,6 +61,15 @@ export function TaskList({ initialTasks = [] }: TaskListProps) {
       toast({
         title: "Error",
         description: "You must be logged in to apply for tasks",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!selectedTask) {
+      toast({
+        title: "Error",
+        description: "No task selected",
         variant: "destructive",
       })
       return
@@ -106,9 +125,7 @@ export function TaskList({ initialTasks = [] }: TaskListProps) {
 
   return (
     <div>
-      {/* Your existing task list table */}
       <Table>
-        {/* ... other table content ... */}
         <TableBody>
           {tasks.map((task) => (
             <TableRow key={task.id}>

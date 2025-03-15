@@ -54,7 +54,7 @@ export default function InternshipRequests() {
     <div className="p-6 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Internship Requests</CardTitle>
+          <CardTitle>Corporate Requests</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (

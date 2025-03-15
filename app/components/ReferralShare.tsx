@@ -6,6 +6,7 @@ import { useToast } from "./ui/use-toast";
 import { Card } from "./ui/card";
 import { Copy, Twitter, Facebook, MessageCircle, Send, Link, Users, UserCheck, Award, QrCode, X, Download } from "lucide-react";
 import { Button } from "./ui/button";
+import { ensureReferralCode } from "@/app/lib/referral-utils";
 
 interface ReferralStats {
   totalVisits: number;
@@ -62,20 +63,27 @@ export function ReferralShare() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('referral_code')
-            .eq('user_id', user.id)
-          .single();
-
-        if (profile?.referral_code) {
-          setReferralCode(profile.referral_code);
-      }
-    } catch (error) {
+        // Try to get or create referral code
+        const code = await ensureReferralCode(user.id);
+        if (code) {
+          setReferralCode(code);
+        } else {
+          toast({
+            title: "Error",
+            description: "Unable to generate referral code. Please try again later.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
         console.error('Error initializing:', error);
-    } finally {
-      setIsLoading(false);
-    }
+        toast({
+          title: "Error",
+          description: "Failed to load referral data. Please try again later.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
     }
 
     initializeData();

@@ -5,11 +5,11 @@ import Auth from '../../components/Auth';
 
 export const dynamic = 'force-dynamic';
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined }
-}) {
+type SearchParamsProps = {
+  searchParams?: { [key: string]: string | string[] | undefined };
+}
+
+export default async function LoginPage({ searchParams = {} }: SearchParamsProps) {
   const cookieStore = cookies();
   const supabase = createServerComponentClient({ cookies: () => cookieStore });
 
@@ -18,11 +18,7 @@ export default async function LoginPage({
   } = await supabase.auth.getSession();
 
   if (session) {
-    const redirectUrl = typeof searchParams.redirect === 'string' 
-      ? searchParams.redirect 
-      : '/dashboard/intern';
-    
-    redirect(redirectUrl);
+    redirect('/dashboard/intern');
   }
 
   return <Auth />;

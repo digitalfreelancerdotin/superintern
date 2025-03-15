@@ -34,8 +34,8 @@ export default function SignUpPage() {
         }
       } catch (error) {
         console.error('Detailed tracking error:', {
-          message: error.message,
-          stack: error.stack,
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
           error
         });
       }

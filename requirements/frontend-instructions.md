@@ -12,44 +12,53 @@ Use this guide to build a project where users would be able to register and find
 
 # current file structure
 
-topinterns/
+superinterns4/
 ├── .next/
+├── .git/
 ├── app/
-│   ├── (auth)/
-│   │   ├── sign-in/
-│   │   │   └── page.tsx
-│   │   │   └── sign-up/
-│   │   │       └── page.tsx
-│   │   ├── (dashboard)/
-│   │   │   ├── admin/
-│   │   │   │   ├── tasks/
-│   │   │   │   │   └── page.tsx
-│   │   │   │   └── layout.tsx
-│   │   │   └── intern/
-│   │   │       ├── tasks/
-│   │   │       │   └── page.tsx
-│   │   │       └── layout.tsx
-│   │   ├── components/
-│   │   │   ├── ui/
-│   │   │   │   └── [shadcn components]
-│   │   │   ├── TaskCard.tsx
-│   │   │   ├── TaskList.tsx
-│   │   │   ├── InternTable.tsx
-│   │   │   └── Hero.tsx
-│   │   ├── lib/
-│   │   │   ├── supabase.ts
-│   │   │   └── utils.ts
-│   │   ├── layout.tsx
-│   │   └── page.tsx
-│   ├── public/
-│   │   └── assets/
-│   ├── types/
-│   │   └── index.ts
-│   ├── .env
-│   ├── .gitignore
-│   ├── package.json
-│   ├── next.config.js
-│   └── tsconfig.json
+│   ├── actions/
+│   ├── api/
+│   ├── auth/
+│   ├── components/
+│   ├── context/
+│   ├── dashboard/
+│   ├── lib/
+│   ├── login/
+│   ├── signup/
+│   ├── globals.css
+│   ├── layout.tsx
+│   ├── middleware.ts
+│   ├── page.tsx
+│   └── favicon.ico
+├── components/
+├── lib/
+├── migrations/
+├── public/
+├── requirements/
+├── supabase/
+├── node_modules/
+├── .env.local
+├── .eslintrc.json
+├── .gitignore
+├── components.json
+├── eslint.config.mjs
+├── middleware.ts
+├── next.config.js
+├── next.config.ts
+├── next-env.d.ts
+├── package.json
+├── package-lock.json
+├── postcss.config.mjs
+├── README.md
+├── restart.dev.bat
+├── tailwind.config.js
+├── tsconfig.json
+└── various SQL files
+    ├── working.sqll
+    ├── update-open-tasks-policy.sql
+    ├── update-tasks-table.sql
+    ├── tasklist.sql
+    └── ... (other SQL files)
 
 # rules
 - All new components should go to the components folder and named like example-component.tsx unless otherwise specified

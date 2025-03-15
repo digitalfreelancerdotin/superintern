@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [comment, setComment] = useState('');
+  const [profile, setProfile] = useState<{ first_name: string; last_name: string } | null>(null);
 
   useEffect(() => {
     async function checkAdminStatus() {
@@ -27,7 +28,7 @@ export default function DashboardPage() {
       try {
         const { data: profile, error } = await supabase
           .from('intern_profiles')
-          .select('is_admin')
+          .select('is_admin, first_name, last_name')
           .eq('user_id', user.id)
           .single();
 
@@ -37,6 +38,7 @@ export default function DashboardPage() {
         }
 
         setIsAdmin(profile?.is_admin || false);
+        setProfile(profile ? { first_name: profile.first_name, last_name: profile.last_name } : null);
       } catch (error) {
         console.error('Error:', error);
       } finally {
@@ -171,9 +173,9 @@ export default function DashboardPage() {
       <Card className="p-6">
         <h1 className="text-2xl font-bold mb-4">
           {isAdmin ? (
-            <span className="text-blue-600">Welcome, Admin! 👋</span>
+            <span className="text-blue-600">Welcome, {profile?.first_name || 'Admin'}! 👋</span>
           ) : (
-            'Welcome to your Dashboard'
+            <span>Welcome, {profile ? `${profile.first_name} ${profile.last_name}` : 'User'}! 👋</span>
           )}
         </h1>
         
