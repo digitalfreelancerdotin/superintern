@@ -96,7 +96,7 @@ export function Sidebar({ className }: { className?: string }) {
       current: pathname === "/dashboard/interns",
     },
     {
-      name: "Internship Requests",
+      name: "Corporate Requests",
       href: "/dashboard/internship-requests",
       icon: FileText,
       current: pathname === "/dashboard/internship-requests",
