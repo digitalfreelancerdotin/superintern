@@ -1,24 +1,22 @@
+import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = createRouteHandlerClient({ cookies });
+    const { data, error } = await supabase.from('referral_codes').select('*').limit(1);
 
-    // Test database connection
-    const { data, error } = await supabase
-      .from('referral_visits')
-      .select('*')
-      .limit(1);
+    if (error) {
+      throw error;
+    }
 
-    return NextResponse.json({ 
-      message: 'Test endpoint working',
-      dbTest: { data, error },
-      timestamp: new Date().toISOString()
+    return NextResponse.json({
+      message: 'Test successful',
+      data,
     });
   } catch (error) {
-    return NextResponse.json({ error: 'Test failed', details: error.message }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    return NextResponse.json({ error: 'Test failed', details: errorMessage }, { status: 500 });
   }
 } 

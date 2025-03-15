@@ -79,7 +79,7 @@ export default function TaskApplicationsPage() {
         throw new Error('Unauthorized: Admin access required');
       }
 
-      // Get all applications with task and applicant details using a simpler query
+      // Get all applications with task and applicant details
       const { data, error } = await supabase
         .from('task_applications')
         .select(`
@@ -94,22 +94,30 @@ export default function TaskApplicationsPage() {
             points,
             payment_amount,
             is_paid
-          ),
-          intern_profiles (
-            first_name,
-            last_name,
-            email
           )
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
+      // Get the applicant details in a separate query
+      const applicantIds = [...new Set((data || []).map(app => app.applicant_id))];
+      const { data: applicantData, error: applicantError } = await supabase
+        .from('intern_profiles')
+        .select('user_id, first_name, last_name, email')
+        .in('user_id', applicantIds);
+
+      if (applicantError) throw applicantError;
+
+      // Create a map of applicant details
+      const applicantMap = new Map(
+        applicantData?.map(profile => [profile.user_id, profile]) || []
+      );
+
       // Transform the data to match our interface
       const transformedData = (data || []).map(app => {
+        const applicantProfile = applicantMap.get(app.applicant_id);
         const taskData = Array.isArray(app.tasks) ? app.tasks[0] : app.tasks;
-        const profileData = Array.isArray(app.intern_profiles) ? app.intern_profiles[0] : app.intern_profiles;
-        
         return {
           id: app.id,
           task_id: app.task_id,
@@ -124,9 +132,9 @@ export default function TaskApplicationsPage() {
             is_paid: taskData?.is_paid || false
           },
           applicant: {
-            first_name: profileData?.first_name || '',
-            last_name: profileData?.last_name || '',
-            email: profileData?.email || ''
+            first_name: applicantProfile?.first_name || '',
+            last_name: applicantProfile?.last_name || '',
+            email: applicantProfile?.email || ''
           }
         };
       });
