@@ -51,7 +51,7 @@ export default function TaskApplicationsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<{
     app: TaskApplication | null;
-    action: 'approve' | 'reject' | null;
+    action: 'approved' | 'rejected' | null;
   }>({ app: null, action: null });
   const [rejectionReason, setRejectionReason] = useState('');
   
@@ -79,7 +79,7 @@ export default function TaskApplicationsPage() {
         throw new Error('Unauthorized: Admin access required');
       }
 
-      // Get all applications with task and applicant details using a simpler query
+      // Get all applications with task and applicant details
       const { data, error } = await supabase
         .from('task_applications')
         .select(`
@@ -94,22 +94,30 @@ export default function TaskApplicationsPage() {
             points,
             payment_amount,
             is_paid
-          ),
-          intern_profiles (
-            first_name,
-            last_name,
-            email
           )
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
+      // Get the applicant details in a separate query
+      const applicantIds = [...new Set((data || []).map(app => app.applicant_id))];
+      const { data: applicantData, error: applicantError } = await supabase
+        .from('intern_profiles')
+        .select('user_id, first_name, last_name, email')
+        .in('user_id', applicantIds);
+
+      if (applicantError) throw applicantError;
+
+      // Create a map of applicant details
+      const applicantMap = new Map(
+        applicantData?.map(profile => [profile.user_id, profile]) || []
+      );
+
       // Transform the data to match our interface
       const transformedData = (data || []).map(app => {
+        const applicantProfile = applicantMap.get(app.applicant_id);
         const taskData = Array.isArray(app.tasks) ? app.tasks[0] : app.tasks;
-        const profileData = Array.isArray(app.intern_profiles) ? app.intern_profiles[0] : app.intern_profiles;
-        
         return {
           id: app.id,
           task_id: app.task_id,
@@ -124,9 +132,9 @@ export default function TaskApplicationsPage() {
             is_paid: taskData?.is_paid || false
           },
           applicant: {
-            first_name: profileData?.first_name || '',
-            last_name: profileData?.last_name || '',
-            email: profileData?.email || ''
+            first_name: applicantProfile?.first_name || '',
+            last_name: applicantProfile?.last_name || '',
+            email: applicantProfile?.email || ''
           }
         };
       });
@@ -150,8 +158,7 @@ export default function TaskApplicationsPage() {
         .from('task_applications')
         .update({ 
           status,
-          notes,
-          updated_at: new Date().toISOString()
+          notes
         })
         .eq('id', applicationId);
 
@@ -224,13 +231,13 @@ export default function TaskApplicationsPage() {
                   {app.status === 'pending' && (
                     <div className="flex gap-2">
                       <Button
-                        onClick={() => setSelectedApp({ app, action: 'approve' })}
+                        onClick={() => setSelectedApp({ app, action: 'approved' })}
                         className="bg-green-600 hover:bg-green-700 cursor-pointer"
                       >
                         Approve
                       </Button>
                       <Button
-                        onClick={() => setSelectedApp({ app, action: 'reject' })}
+                        onClick={() => setSelectedApp({ app, action: 'rejected' })}
                         variant="destructive"
                         className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
                       >
@@ -252,50 +259,51 @@ export default function TaskApplicationsPage() {
         </Table>
       </Card>
 
-      <AlertDialog open={selectedApp.app !== null}>
-        <AlertDialogContent>
+      <AlertDialog open={selectedApp.app !== null} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedApp({ app: null, action: null });
+          setRejectionReason('');
+        }
+      }}>
+        <AlertDialogContent className="bg-white dark:bg-gray-800">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {selectedApp.action === 'approve' ? 'Approve Application' : 'Reject Application'}
+              {selectedApp.action === 'approved' ? 'Approve Application' : 'Reject Application'}
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              <div>
-                <div>
-                  {selectedApp.app && (
+            <AlertDialogDescription asChild>
+              {selectedApp.app && (
+                <div className="space-y-4">
+                  <div>
+                    Are you sure you want to {selectedApp.action === 'approved' ? 'approve' : 'reject'} the application for "{selectedApp.app.task.title}" from {selectedApp.app.applicant.first_name} {selectedApp.app.applicant.last_name}?
+                  </div>
+                  {selectedApp.action === 'rejected' && (
                     <div>
-                      {`Are you sure you want to ${selectedApp.action} the application for "${selectedApp.app.task.title}" from ${selectedApp.app.applicant.first_name} ${selectedApp.app.applicant.last_name}?`}
+                      <label className="block text-sm font-medium mb-2">
+                        Rejection Reason (will be sent to the applicant):
+                      </label>
+                      <Textarea
+                        value={rejectionReason}
+                        onChange={(e) => setRejectionReason(e.target.value)}
+                        placeholder="Please provide a reason for rejection..."
+                        className="w-full"
+                      />
                     </div>
                   )}
                 </div>
-                {selectedApp.action === 'reject' && (
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Rejection Reason (will be sent to the applicant):
-                    </label>
-                    <Textarea
-                      value={rejectionReason}
-                      onChange={(e) => setRejectionReason(e.target.value)}
-                      placeholder="Please provide a reason for rejection..."
-                      className="w-full"
-                    />
-                  </div>
-                )}
-              </div>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel 
-              onClick={() => {
-                setSelectedApp({ app: null, action: null });
-                setRejectionReason('');
-              }}
-            >
+            <AlertDialogCancel onClick={() => {
+              setSelectedApp({ app: null, action: null });
+              setRejectionReason('');
+            }}>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
                 if (selectedApp.app && selectedApp.action) {
-                  if (selectedApp.action === 'reject' && !rejectionReason.trim()) {
+                  if (selectedApp.action === 'rejected' && !rejectionReason.trim()) {
                     toast({
                       title: "Error",
                       description: "Please provide a reason for rejection",
@@ -304,15 +312,13 @@ export default function TaskApplicationsPage() {
                     return;
                   }
 
-                  // First update the application status
                   await handleApplicationUpdate(
                     selectedApp.app.id,
-                    selectedApp.action === 'approve' ? 'approved' : 'rejected',
-                    selectedApp.action === 'reject' ? rejectionReason : undefined
+                    selectedApp.action,
+                    selectedApp.action === 'rejected' ? rejectionReason : undefined
                   );
 
-                  if (selectedApp.action === 'reject') {
-                    // Update the task status back to open
+                  if (selectedApp.action === 'rejected') {
                     const { error: taskError } = await supabase
                       .from('tasks')
                       .update({ status: 'open' })
@@ -332,9 +338,9 @@ export default function TaskApplicationsPage() {
                   setRejectionReason('');
                 }
               }}
-              className={selectedApp.action === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700 text-white'}
+              className={selectedApp.action === 'approved' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700 text-white'}
             >
-              {selectedApp.action === 'approve' ? 'Approve' : 'Reject'}
+              {selectedApp.action === 'approved' ? 'Approve' : 'Reject'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -37,7 +37,7 @@ export function ReferralStats() {
           completed_task_count,
           points_awarded,
           created_at,
-          referred_user:referred_user_id (
+          referred_user:profiles!inner(
             first_name,
             last_name,
             email
@@ -51,7 +51,11 @@ export function ReferralStats() {
         return;
       }
 
-      setReferrals(data || []);
+      const formattedData: ReferralData[] = (data || []).map(item => ({
+        ...item,
+        referred_user: Array.isArray(item.referred_user) ? item.referred_user[0] : item.referred_user
+      }));
+      setReferrals(formattedData);
     } catch (error) {
       console.error('Error in loadReferrals:', error);
     } finally {
